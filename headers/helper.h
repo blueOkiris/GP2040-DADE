@@ -11,26 +11,12 @@
 #include "xinput_driver.h"
 
 // GP2040-CE Version (32 character limit)
-#define GP2040VERSION "v0.7.1"
+#define GP2040VERSION "v0.7.5"
 
-const std::string BUTTON_LABEL_UP = "Up";
-const std::string BUTTON_LABEL_DOWN = "Down";
-const std::string BUTTON_LABEL_LEFT = "Left";
-const std::string BUTTON_LABEL_RIGHT = "Right";
-const std::string BUTTON_LABEL_B1 = "B1";
-const std::string BUTTON_LABEL_B2 = "B2";
-const std::string BUTTON_LABEL_B3 = "B3";
-const std::string BUTTON_LABEL_B4 = "B4";
-const std::string BUTTON_LABEL_L1 = "L1";
-const std::string BUTTON_LABEL_R1 = "R1";
-const std::string BUTTON_LABEL_L2 = "L2";
-const std::string BUTTON_LABEL_R2 = "R2";
-const std::string BUTTON_LABEL_S1 = "S1";
-const std::string BUTTON_LABEL_S2 = "S2";
-const std::string BUTTON_LABEL_L3 = "L3";
-const std::string BUTTON_LABEL_R3 = "R3";
-const std::string BUTTON_LABEL_A1 = "A1";
-const std::string BUTTON_LABEL_A2 = "A2";
+// GP2040-CE Board Config (64 character limit)
+#ifndef GP2040_BOARDCONFIG
+#define GP2040_BOARDCONFIG "Unknown"
+#endif
 
 #define PLED_REPORT_SIZE 32
 
@@ -53,6 +39,8 @@ const std::string BUTTON_LABEL_A2 = "A2";
 #define PLED_COLOR ColorWhite // White
 #endif
 
-static inline bool isValidPin(int32_t pin) { return pin >= 0 && pin < NUM_BANK0_GPIOS; }
+static inline bool isValidPin(int32_t pin) {
+    int32_t numBank0GPIOS = NUM_BANK0_GPIOS;
+    return pin >= 0 && pin < numBank0GPIOS; }
 
 #endif

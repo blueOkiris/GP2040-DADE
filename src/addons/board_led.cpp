@@ -1,5 +1,6 @@
 #include "addons/board_led.h"
 #include "usb_driver.h" // Required to check USB state
+#include "ps4_driver.h"
 #include "helper.h"
 #include "config.pb.h"
 
@@ -21,19 +22,20 @@ void BoardLedAddon::setup() {
 
 void BoardLedAddon::process() {
     bool state = 0;
-    Gamepad * gamepad;
+    Gamepad * processedGamepad;
+    uint16_t joystickMid = GetJoystickMidValue(Storage::getInstance().getGamepadOptions().inputMode);
     switch (onBoardLedMode) {
         case OnBoardLedMode::ON_BOARD_LED_MODE_INPUT_TEST: // Blinks on input
-            gamepad = Storage::getInstance().GetGamepad();
-            state =    (gamepad->rawState.buttons != 0)
-                    || (gamepad->rawState.dpad    != 0)
-                    || (gamepad->rawState.lx      != GAMEPAD_JOYSTICK_MID)
-                    || (gamepad->rawState.rx      != GAMEPAD_JOYSTICK_MID)
-                    || (gamepad->rawState.ly      != GAMEPAD_JOYSTICK_MID)
-                    || (gamepad->rawState.ry      != GAMEPAD_JOYSTICK_MID)
-                    || (gamepad->rawState.lt      != 0)
-                    || (gamepad->rawState.rt      != 0)
-                    || (gamepad->rawState.aux     != 0);
+            processedGamepad = Storage::getInstance().GetProcessedGamepad();
+            state =    (processedGamepad->state.buttons != 0)
+                    || (processedGamepad->state.dpad    != 0)
+                    || (processedGamepad->state.lx      != joystickMid)
+                    || (processedGamepad->state.rx      != joystickMid)
+                    || (processedGamepad->state.ly      != joystickMid)
+                    || (processedGamepad->state.ry      != joystickMid)
+                    || (processedGamepad->state.lt      != 0)
+                    || (processedGamepad->state.rt      != 0)
+                    || (processedGamepad->state.aux     != 0);
             if (prevState != state) {
                 gpio_put(BOARD_LED_PIN, state ? 1 : 0);
             }
@@ -63,8 +65,15 @@ void BoardLedAddon::process() {
                 }
             }
             break;
+        case OnBoardLedMode::ON_BOARD_LED_MODE_PS_AUTH:
+            state = PS4Data::getInstance().authsent == true;
+            if (prevState != state) {
+                gpio_put(BOARD_LED_PIN, state ? 1 : 0);
+            }
+            prevState = state;
+            break;
         case OnBoardLedMode::ON_BOARD_LED_MODE_OFF:
-            return;
+        default:
             break;
     }
 }

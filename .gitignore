@@ -10,3 +10,6 @@ build/
 compile_commands.json
 lib/httpd/fsdata.c
 modules/Custom.cmake
+.idea
+cmake-*
+env.ini

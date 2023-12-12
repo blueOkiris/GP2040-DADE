@@ -1,4 +1,5 @@
 #include "addonmanager.h"
+#include "usbhostmanager.h"
 
 void AddonManager::LoadAddon(GPAddon* addon, ADDON_PROCESS processAt) {
     if (addon->available()) {
@@ -12,6 +13,26 @@ void AddonManager::LoadAddon(GPAddon* addon, ADDON_PROCESS processAt) {
     }
 }
 
+void AddonManager::LoadUSBAddon(USBAddon* addon, ADDON_PROCESS processAt) {
+    if (addon->available()) {
+        AddonBlock * block = new AddonBlock;
+		addon->setup();
+        block->ptr = addon;
+        block->process = processAt;
+        addons.push_back(block);
+        USBHostManager::getInstance().pushAddon(addon);
+	} else {
+        delete addon; // Don't use the memory if we don't have to
+    }
+}
+
+void AddonManager::ReinitializeAddons(ADDON_PROCESS processType) {
+    // Loop through all addons and process any that match our type
+    for (std::vector<AddonBlock*>::iterator it = addons.begin(); it != addons.end(); it++) {
+        if ( (*it)->process == processType )
+            (*it)->ptr->reinit();
+    }
+}
 
 void AddonManager::PreprocessAddons(ADDON_PROCESS processType) {
     // Loop through all addons and process any that match our type

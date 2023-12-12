@@ -146,6 +146,10 @@
 #define LEDS_BUTTON_A2  -1
 #endif
 
+#ifndef LEDS_TURN_OFF_WHEN_SUSPENDED
+#define LEDS_TURN_OFF_WHEN_SUSPENDED 0
+#endif
+
 void configureAnimations(AnimationStation *as);
 AnimationHotkey animationHotkeys(Gamepad *gamepad);
 PixelMatrix createLedButtonLayout(ButtonLayout layout, int ledsPerPixel);
@@ -190,6 +194,9 @@ private:
 	NeoPicoPlayerLEDs * neoPLEDs = nullptr;
 	AnimationStation as;
 	std::map<std::string, int> buttonPositions;
+	bool isFocusModeEnabled;
+	bool focusModePrevState;
+	bool turnOffWhenSuspended;
 };
 
 #endif

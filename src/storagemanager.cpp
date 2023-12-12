@@ -9,16 +9,17 @@
 #include "AnimationStorage.hpp"
 #include "Effects/StaticColor.hpp"
 #include "FlashPROM.h"
+#include "config.pb.h"
 #include "hardware/watchdog.h"
 #include "Animation.hpp"
 #include "CRC32.h"
+#include "types.h"
 
 #include "addons/analog.h"
 #include "addons/board_led.h"
 #include "addons/bootsel_button.h"
 #include "addons/buzzerspeaker.h"
 #include "addons/dualdirectional.h"
-#include "addons/extra_button.h"
 #include "addons/i2canalog1219.h"
 #include "addons/i2cdisplay.h"
 #include "addons/jslider.h"
@@ -30,7 +31,9 @@
 #include "addons/turbo.h"
 #include "addons/slider_socd.h"
 #include "addons/wiiext.h"
+#include "addons/input_macro.h"
 #include "addons/snes_input.h"
+#include "addons/tilt.h"
 
 #include "config_utils.h"
 
@@ -43,6 +46,8 @@ Storage::Storage()
 	EEPROM.start();
 	critical_section_init(&animationOptionsCs);
 	ConfigUtils::load(config);
+
+	setFunctionalPinMappings();
 }
 
 bool Storage::save()
@@ -125,15 +130,39 @@ void Storage::enqueueAnimationOptionsSave(const AnimationOptions& animationOptio
 	critical_section_exit(&animationOptionsCs);
 }
 
-/* Board stuffs */
-void Storage::initBoardOptions() {
-	setDefaultBoardOptions();
-}
-
 void Storage::ResetSettings()
 {
 	EEPROM.reset();
 	watchdog_reboot(0, SRAM_END, 2000);
+}
+
+void Storage::setProfile(const uint32_t profileNum)
+{
+	this->config.gamepadOptions.profileNumber = (profileNum < 1 || profileNum > 4) ? 1 : profileNum;
+}
+
+void Storage::setFunctionalPinMappings()
+{
+	GpioMappingInfo* alts = nullptr;
+	if (config.gamepadOptions.profileNumber >= 2 && config.gamepadOptions.profileNumber <= 4)
+		alts = this->config.profileOptions.gpioMappingsSets[config.gamepadOptions.profileNumber-2].pins;
+
+	for (Pin_t pin = 0; pin < (Pin_t)NUM_BANK0_GPIOS; pin++) {
+		// assign the functional pin to the profile pin if:
+		// 1: there was a profile to load
+		// 2: the new action isn't RESERVED or ASSIGNED_TO_ADDON (profiles can't affect special addons)
+		// 3: the old action isn't RESERVED or ASSIGNED_TO_ADDON (profiles can't affect special addons)
+		// else use whatever is in the core mapping
+		if (alts != nullptr &&
+				alts[pin].action != GpioAction::RESERVED &&
+				alts[pin].action != GpioAction::ASSIGNED_TO_ADDON &&
+				this->config.gpioMappings.pins[pin].action != GpioAction::RESERVED &&
+				this->config.gpioMappings.pins[pin].action != GpioAction::ASSIGNED_TO_ADDON) {
+			functionalPinMappings[pin] = alts[pin].action;
+		} else {
+			functionalPinMappings[pin] = this->config.gpioMappings.pins[pin].action;
+		}
+	}
 }
 
 void Storage::SetConfigMode(bool mode) { // hack for config mode

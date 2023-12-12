@@ -1,30 +1,37 @@
 #include "config_utils.h"
 
+#include "config.pb.h"
 #include "enums.pb.h"
 #include "pb_encode.h"
 #include "pb_decode.h"
 #include "pb_common.h"
+#include "types.h"
 
 #include "BoardConfig.h"
+#include "GamepadConfig.h"
 #include "helper.h"
 #include "addons/analog.h"
 #include "addons/board_led.h"
 #include "addons/bootsel_button.h"
 #include "addons/buzzerspeaker.h"
 #include "addons/dualdirectional.h"
-#include "addons/extra_button.h"
+#include "addons/tilt.h"
+#include "addons/focus_mode.h"
 #include "addons/i2canalog1219.h"
 #include "addons/i2cdisplay.h"
 #include "addons/jslider.h"
+#include "addons/keyboard_host.h"
 #include "addons/neopicoleds.h"
 #include "addons/playernum.h"
 #include "addons/pleds.h"
 #include "addons/ps4mode.h"
+#include "addons/pspassthrough.h"
 #include "addons/reverse.h"
 #include "addons/slider_socd.h"
 #include "addons/turbo.h"
 #include "addons/wiiext.h"
 #include "addons/snes_input.h"
+#include "addons/input_macro.h"
 
 #include "CRC32.h"
 #include "FlashPROM.h"
@@ -71,6 +78,30 @@
 #ifndef DEFAULT_INPUT_MODE
     #define DEFAULT_INPUT_MODE INPUT_MODE_XINPUT
 #endif
+#ifndef DEFAULT_INPUT_MODE_B1
+    #define DEFAULT_INPUT_MODE_B1 INPUT_MODE_SWITCH
+#endif
+#ifndef DEFAULT_INPUT_MODE_B2
+    #define DEFAULT_INPUT_MODE_B2 INPUT_MODE_XINPUT
+#endif
+#ifndef DEFAULT_INPUT_MODE_B3
+    #define DEFAULT_INPUT_MODE_B3 INPUT_MODE_HID
+#endif
+#ifndef DEFAULT_INPUT_MODE_B4
+    #define DEFAULT_INPUT_MODE_B4 INPUT_MODE_PS4
+#endif
+#ifndef DEFAULT_INPUT_MODE_L1
+    #define DEFAULT_INPUT_MODE_L1 -1
+#endif
+#ifndef DEFAULT_INPUT_MODE_L2
+    #define DEFAULT_INPUT_MODE_L2 -1
+#endif
+#ifndef DEFAULT_INPUT_MODE_R1
+    #define DEFAULT_INPUT_MODE_R1 -1
+#endif
+#ifndef DEFAULT_INPUT_MODE_R2
+    #define DEFAULT_INPUT_MODE_R2 INPUT_MODE_KEYBOARD
+#endif
 #ifndef DEFAULT_DPAD_MODE
     #define DEFAULT_DPAD_MODE DPAD_MODE_DIGITAL
 #endif
@@ -78,11 +109,23 @@
     #define DEFAULT_SOCD_MODE SOCD_MODE_NEUTRAL
 #endif
 
+// -----------------------------------------------------
+// Migration leftovers
+// -----------------------------------------------------
+
+#ifndef EXTRA_BUTTON_PIN
+    #define EXTRA_BUTTON_PIN -1
+#endif
+#ifndef EXTRA_BUTTON_MASK
+    #define EXTRA_BUTTON_MASK 0
+#endif
+
 void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
 {
     const uint8_t emptyByteArray[0] = {};
 
     INIT_UNSET_PROPERTY_STR(config, boardVersion, GP2040VERSION);
+    INIT_UNSET_PROPERTY_STR(config, boardConfig, GP2040_BOARDCONFIG);
 
     // gamepadOptions
     INIT_UNSET_PROPERTY(config.gamepadOptions, inputMode, DEFAULT_INPUT_MODE);
@@ -91,48 +134,88 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.gamepadOptions, invertXAxis, false);
     INIT_UNSET_PROPERTY(config.gamepadOptions, switchTpShareForDs4, false);
     INIT_UNSET_PROPERTY(config.gamepadOptions, lockHotkeys, DEFAULT_LOCK_HOTKEYS);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, fourWayMode, false);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, profileNumber, 1);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, ps4ControllerType, DEFAULT_PS4CONTROLLER_TYPE);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, debounceDelay, 5);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeB1, DEFAULT_INPUT_MODE_B1);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeB2, DEFAULT_INPUT_MODE_B2);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeB3, DEFAULT_INPUT_MODE_B3);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeB4, DEFAULT_INPUT_MODE_B4);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeL1, DEFAULT_INPUT_MODE_L1);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeL2, DEFAULT_INPUT_MODE_L2);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeR1, DEFAULT_INPUT_MODE_R1);
+    INIT_UNSET_PROPERTY(config.gamepadOptions, inputModeR2, DEFAULT_INPUT_MODE_R2);
 
     // hotkeyOptions
     HotkeyOptions& hotkeyOptions = config.hotkeyOptions;
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Up, dpadMask, HOTKEY_F1_UP_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Up, action, HOTKEY_F1_UP_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Down, dpadMask, HOTKEY_F1_DOWN_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Down, action, HOTKEY_F1_DOWN_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Left, dpadMask, HOTKEY_F1_LEFT_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Left, action, HOTKEY_F1_LEFT_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Right, dpadMask, HOTKEY_F1_RIGHT_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF1Right, action, HOTKEY_F1_RIGHT_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Up, dpadMask, HOTKEY_F2_UP_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Up, action, HOTKEY_F2_UP_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Down, dpadMask, HOTKEY_F2_DOWN_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Down, action, HOTKEY_F2_DOWN_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Left, dpadMask, HOTKEY_F2_LEFT_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Left, action, HOTKEY_F2_LEFT_ACTION);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Right, dpadMask, HOTKEY_F2_RIGHT_MASK);
-    INIT_UNSET_PROPERTY(hotkeyOptions.hotkeyF2Right, action, HOTKEY_F2_RIGHT_ACTION);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey01, auxMask, HOTKEY_01_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey01, buttonsMask, HOTKEY_01_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey01, dpadMask, HOTKEY_01_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey01, action, GamepadHotkey(HOTKEY_01_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey02, auxMask, HOTKEY_02_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey02, buttonsMask, HOTKEY_02_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey02, dpadMask, HOTKEY_02_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey02, action, GamepadHotkey(HOTKEY_02_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey03, auxMask, HOTKEY_03_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey03, buttonsMask, HOTKEY_03_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey03, dpadMask, HOTKEY_03_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey03, action, GamepadHotkey(HOTKEY_03_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey04, auxMask, HOTKEY_04_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey04, buttonsMask, HOTKEY_04_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey04, dpadMask, HOTKEY_04_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey04, action, GamepadHotkey(HOTKEY_04_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey05, auxMask, HOTKEY_05_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey05, buttonsMask, HOTKEY_05_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey05, dpadMask, HOTKEY_05_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey05, action, GamepadHotkey(HOTKEY_05_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey06, auxMask, HOTKEY_06_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey06, buttonsMask, HOTKEY_06_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey06, dpadMask, HOTKEY_06_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey06, action, GamepadHotkey(HOTKEY_06_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey07, auxMask, HOTKEY_07_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey07, buttonsMask, HOTKEY_07_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey07, dpadMask, HOTKEY_07_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey07, action, GamepadHotkey(HOTKEY_07_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey08, auxMask, HOTKEY_08_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey08, buttonsMask, HOTKEY_08_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey08, dpadMask, HOTKEY_08_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey08, action, GamepadHotkey(HOTKEY_08_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey09, auxMask, HOTKEY_09_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey09, buttonsMask, HOTKEY_09_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey09, dpadMask, HOTKEY_09_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey09, action, GamepadHotkey(HOTKEY_09_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey10, auxMask, HOTKEY_10_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey10, buttonsMask, HOTKEY_10_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey10, dpadMask, HOTKEY_10_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey10, action, GamepadHotkey(HOTKEY_10_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey11, auxMask, HOTKEY_11_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey11, buttonsMask, HOTKEY_11_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey11, dpadMask, HOTKEY_11_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey11, action, GamepadHotkey(HOTKEY_11_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey12, auxMask, HOTKEY_12_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey12, buttonsMask, HOTKEY_12_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey12, dpadMask, HOTKEY_12_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey12, action, GamepadHotkey(HOTKEY_12_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey13, auxMask, HOTKEY_13_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey13, buttonsMask, HOTKEY_13_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey13, dpadMask, HOTKEY_13_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey13, action, GamepadHotkey(HOTKEY_13_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey14, auxMask, HOTKEY_14_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey14, buttonsMask, HOTKEY_14_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey14, dpadMask, HOTKEY_14_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey14, action, GamepadHotkey(HOTKEY_14_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey15, auxMask, HOTKEY_15_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey15, buttonsMask, HOTKEY_15_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey15, dpadMask, HOTKEY_15_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey15, action, GamepadHotkey(HOTKEY_15_ACTION));
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey16, auxMask, HOTKEY_16_AUX_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey16, buttonsMask, HOTKEY_16_BUTTONS_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey16, dpadMask, HOTKEY_16_DPAD_MASK);
+    INIT_UNSET_PROPERTY(hotkeyOptions.hotkey16, action, GamepadHotkey(HOTKEY_16_ACTION));
 
     // forcedSetupMode
     INIT_UNSET_PROPERTY(config.forcedSetupOptions, mode, DEFAULT_FORCED_SETUP_MODE);
-
-    // pinMappings
-    INIT_UNSET_PROPERTY(config.pinMappings, pinDpadUp, PIN_DPAD_UP);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinDpadDown, PIN_DPAD_DOWN);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinDpadLeft, PIN_DPAD_LEFT);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinDpadRight, PIN_DPAD_RIGHT);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonB1, PIN_BUTTON_B1);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonB2, PIN_BUTTON_B2);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonB3, PIN_BUTTON_B3);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonB4, PIN_BUTTON_B4);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonL1, PIN_BUTTON_L1);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonR1, PIN_BUTTON_R1);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonL2, PIN_BUTTON_L2);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonR2, PIN_BUTTON_R2);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonS1, PIN_BUTTON_S1);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonS2, PIN_BUTTON_S2);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonL3, PIN_BUTTON_L3);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonR3, PIN_BUTTON_R3);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonA1, PIN_BUTTON_A1);
-    INIT_UNSET_PROPERTY(config.pinMappings, pinButtonA2, PIN_BUTTON_A2);
 
     // keyboardMapping
     INIT_UNSET_PROPERTY(config.keyboardMapping, keyDpadUp, KEY_DPAD_UP);
@@ -163,6 +246,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.displayOptions, i2cSpeed, I2C_SPEED);
     INIT_UNSET_PROPERTY(config.displayOptions, buttonLayout, BUTTON_LAYOUT);
     INIT_UNSET_PROPERTY(config.displayOptions, buttonLayoutRight, BUTTON_LAYOUT_RIGHT);
+    INIT_UNSET_PROPERTY(config.displayOptions, turnOffWhenSuspended, DISPLAY_TURN_OFF_WHEN_SUSPENDED);
 
     ButtonLayoutParamsLeft& paramsLeft = config.displayOptions.buttonLayoutCustomOptions.paramsLeft;
     INIT_UNSET_PROPERTY(paramsLeft, layout, BUTTON_LAYOUT);
@@ -188,6 +272,33 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.displayOptions, invert, !!DISPLAY_INVERT);
     INIT_UNSET_PROPERTY(config.displayOptions, displaySaverTimeout, DISPLAY_SAVER_TIMEOUT);
 
+    // peripheralOptions
+    PeripheralOptions& peripheralOptions = config.peripheralOptions;
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C0, enabled, (!!HAS_I2C_DISPLAY) && (I2C_BLOCK == i2c0));
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C0, sda, (I2C_BLOCK == i2c0) ? I2C_SDA_PIN : -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C0, scl, (I2C_BLOCK == i2c0) ? I2C_SCL_PIN : -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C0, speed, I2C_SPEED);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C1, enabled, (!!HAS_I2C_DISPLAY) && (I2C_BLOCK == i2c1));
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C1, sda, (I2C_BLOCK == i2c1) ? I2C_SDA_PIN : -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C1, scl, (I2C_BLOCK == i2c1) ? I2C_SCL_PIN : -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockI2C1, speed, I2C_SPEED);
+
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI0, enabled, false);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI0, rx, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI0, cs, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI0, sck, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI0, tx, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI1, enabled, false);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI1, rx, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI1, cs, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI1, sck, -1);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockSPI1, tx, -1);
+
+    INIT_UNSET_PROPERTY(peripheralOptions.blockUSB0, enabled, (PSPASSTHROUGH_ENABLED ? PSPASSTHROUGH_ENABLED : USB_PERIPHERAL_ENABLED));
+    INIT_UNSET_PROPERTY(peripheralOptions.blockUSB0, dp, (PSPASSTHROUGH_PIN_DPLUS != -1 ? PSPASSTHROUGH_PIN_DPLUS : USB_PERIPHERAL_PIN_DPLUS));
+    INIT_UNSET_PROPERTY(peripheralOptions.blockUSB0, order, USB_PERIPHERAL_PIN_ORDER);
+    INIT_UNSET_PROPERTY(peripheralOptions.blockUSB0, enable5v, (PSPASSTHROUGH_PIN_5V != -1 ? PSPASSTHROUGH_PIN_5V : USB_PERIPHERAL_PIN_5V));
+
     // ledOptions
     INIT_UNSET_PROPERTY(config.ledOptions, dataPin, BOARD_LEDS_PIN);
     INIT_UNSET_PROPERTY(config.ledOptions, ledFormat, static_cast<LEDFormat_Proto>(LED_FORMAT));
@@ -195,6 +306,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.ledOptions, ledsPerButton, LEDS_PER_PIXEL);
     INIT_UNSET_PROPERTY(config.ledOptions, brightnessMaximum, LED_BRIGHTNESS_MAXIMUM);
     INIT_UNSET_PROPERTY(config.ledOptions, brightnessSteps, LED_BRIGHTNESS_STEPS);
+    INIT_UNSET_PROPERTY(config.ledOptions, turnOffWhenSuspended, LEDS_TURN_OFF_WHEN_SUSPENDED);
 
     INIT_UNSET_PROPERTY(config.ledOptions, indexUp, LEDS_DPAD_UP);
     INIT_UNSET_PROPERTY(config.ledOptions, indexDown, LEDS_DPAD_DOWN);
@@ -273,12 +385,22 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.addonOptions.bootselButtonOptions, buttonMap, BOOTSEL_BUTTON_MASK);
 
     // addonOptions.onBoardLedOptions
+    INIT_UNSET_PROPERTY(config.addonOptions.onBoardLedOptions, enabled, !!BOARD_LED_ENABLED);
     INIT_UNSET_PROPERTY(config.addonOptions.onBoardLedOptions, mode, BOARD_LED_TYPE);
 
     // addonOptions.analogOptions
     INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, enabled, !!ANALOG_INPUT_ENABLED);
-    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdcPinX, ANALOG_ADC_VRX);
-    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdcPinY, ANALOG_ADC_VRY);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc1PinX, ANALOG_ADC_1_VRX);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc1PinY, ANALOG_ADC_1_VRY);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc1Mode, ANALOG_ADC_1_MODE);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc1Invert, ANALOG_ADC_1_INVERT);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc2PinX, ANALOG_ADC_2_VRX);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc2PinY, ANALOG_ADC_2_VRY);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc2Mode, ANALOG_ADC_2_MODE);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analogAdc2Invert, ANALOG_ADC_2_INVERT);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, forced_circularity, !!FORCED_CIRCULARITY_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, analog_deadzone, DEFAULT_ANALOG_DEADZONE);
+    INIT_UNSET_PROPERTY(config.addonOptions.analogOptions, auto_calibrate, !!AUTO_CALIBRATE_ENABLED);
 
     // addonOptions.turboOptions
     INIT_UNSET_PROPERTY(config.addonOptions.turboOptions, enabled, !!TURBO_ENABLED);
@@ -303,8 +425,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
 
     // addonOptions.sliderOptions
     INIT_UNSET_PROPERTY(config.addonOptions.sliderOptions, enabled, !!JSLIDER_ENABLED);
-    INIT_UNSET_PROPERTY(config.addonOptions.sliderOptions, pinLS, PIN_SLIDER_LS);
-    INIT_UNSET_PROPERTY(config.addonOptions.sliderOptions, pinRS, PIN_SLIDER_RS);
+    INIT_UNSET_PROPERTY(config.addonOptions.sliderOptions, modeDefault, SLIDER_MODE_ZERO);
 
     // addonOptions.reverseOptions
     INIT_UNSET_PROPERTY(config.addonOptions.reverseOptions, enabled, !!REVERSE_ENABLED);
@@ -317,11 +438,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
 
     // addonOptions.socdSliderOptions
     INIT_UNSET_PROPERTY(config.addonOptions.socdSliderOptions, enabled, !!SLIDER_SOCD_ENABLED);
-    INIT_UNSET_PROPERTY(config.addonOptions.socdSliderOptions, pinOne, PIN_SLIDER_SOCD_ONE);
-    INIT_UNSET_PROPERTY(config.addonOptions.socdSliderOptions, pinTwo, PIN_SLIDER_SOCD_TWO);
     INIT_UNSET_PROPERTY(config.addonOptions.socdSliderOptions, modeDefault, SLIDER_SOCD_SLOT_DEFAULT);
-    INIT_UNSET_PROPERTY(config.addonOptions.socdSliderOptions, modeOne, SLIDER_SOCD_SLOT_ONE);
-    INIT_UNSET_PROPERTY(config.addonOptions.socdSliderOptions, modeTwo, SLIDER_SOCD_SLOT_TWO);
 
     // addonOptions.analogADS1219Options
     INIT_UNSET_PROPERTY(config.addonOptions.analogADS1219Options, enabled, !!I2C_ANALOG1219_ENABLED);
@@ -333,22 +450,42 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
 
     // addonOptions.dualDirectionalOptions
     INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, enabled, !!DUAL_DIRECTIONAL_ENABLED);
-    INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, upPin, PIN_DUAL_DIRECTIONAL_UP);
-    INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, downPin, PIN_DUAL_DIRECTIONAL_DOWN)
-    INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, leftPin, PIN_DUAL_DIRECTIONAL_LEFT);
-    INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, rightPin, PIN_DUAL_DIRECTIONAL_RIGHT);
     INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, dpadMode, static_cast<DpadMode>(DUAL_DIRECTIONAL_STICK_MODE));
     INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, combineMode, DUAL_DIRECTIONAL_COMBINE_MODE);
+    INIT_UNSET_PROPERTY(config.addonOptions.dualDirectionalOptions, fourWayMode, false);
+
+		// addonOptions.tiltOptions
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, enabled, !!TILT_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tilt1Pin, PIN_TILT_1);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt1LeftX, TILT1_FACTOR_LEFT_X);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt1LeftY, TILT1_FACTOR_LEFT_Y);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt1RightX, TILT1_FACTOR_RIGHT_X);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt1RightY, TILT1_FACTOR_RIGHT_Y);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tilt2Pin, PIN_TILT_2);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt2LeftX, TILT2_FACTOR_LEFT_X);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt2LeftY, TILT2_FACTOR_LEFT_Y);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt2RightX, TILT2_FACTOR_RIGHT_X);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, factorTilt2RightY, TILT2_FACTOR_RIGHT_Y);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltLeftAnalogDownPin, PIN_TILT_LEFT_ANALOG_DOWN);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltLeftAnalogUpPin, PIN_TILT_LEFT_ANALOG_UP);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltLeftAnalogLeftPin, PIN_TILT_LEFT_ANALOG_LEFT);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltLeftAnalogRightPin, PIN_TILT_LEFT_ANALOG_RIGHT);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltRightAnalogDownPin, PIN_TILT_RIGHT_ANALOG_DOWN);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltRightAnalogUpPin, PIN_TILT_RIGHT_ANALOG_UP);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltRightAnalogLeftPin, PIN_TILT_RIGHT_ANALOG_LEFT);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltRightAnalogRightPin, PIN_TILT_RIGHT_ANALOG_RIGHT);
+    INIT_UNSET_PROPERTY(config.addonOptions.tiltOptions, tiltSOCDMode, TILT_SOCD_MODE);
 
     // addonOptions.buzzerOptions
     INIT_UNSET_PROPERTY(config.addonOptions.buzzerOptions, enabled, !!BUZZER_ENABLED);
     INIT_UNSET_PROPERTY(config.addonOptions.buzzerOptions, pin, BUZZER_PIN);
     INIT_UNSET_PROPERTY(config.addonOptions.buzzerOptions, volume, BUZZER_VOLUME);
 
-    // addonOptions.extraOptions
-    INIT_UNSET_PROPERTY(config.addonOptions.extraButtonOptions, enabled, !!EXTRA_BUTTON_ENABLED);
-    INIT_UNSET_PROPERTY(config.addonOptions.extraButtonOptions, pin, EXTRA_BUTTON_PIN);
-    INIT_UNSET_PROPERTY(config.addonOptions.extraButtonOptions, buttonMap, EXTRA_BUTTON_MASK);
+    // addonOptions.inputHistoryOptions
+    INIT_UNSET_PROPERTY(config.addonOptions.inputHistoryOptions, enabled, !!INPUT_HISTORY_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.inputHistoryOptions, length, INPUT_HISTORY_LENGTH);
+    INIT_UNSET_PROPERTY(config.addonOptions.inputHistoryOptions, col, INPUT_HISTORY_COL);
+    INIT_UNSET_PROPERTY(config.addonOptions.inputHistoryOptions, row, INPUT_HISTORY_ROW);
 
     // addonOptions.playerNumberOptions
     INIT_UNSET_PROPERTY(config.addonOptions.playerNumberOptions, enabled, !!PLAYERNUM_ADDON_ENABLED);
@@ -380,6 +517,481 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.addonOptions.snesOptions, clockPin, SNES_PAD_CLOCK_PIN);
     INIT_UNSET_PROPERTY(config.addonOptions.snesOptions, latchPin, SNES_PAD_LATCH_PIN);
     INIT_UNSET_PROPERTY(config.addonOptions.snesOptions, dataPin, SNES_PAD_DATA_PIN);
+
+    // keyboardMapping
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions, enabled, KEYBOARD_HOST_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions, pinDplus, KEYBOARD_HOST_PIN_DPLUS);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions, pin5V, KEYBOARD_HOST_PIN_5V);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyDpadUp, KEY_DPAD_UP);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyDpadDown, KEY_DPAD_DOWN);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyDpadRight, KEY_DPAD_RIGHT);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyDpadLeft, KEY_DPAD_LEFT);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonB1, KEY_BUTTON_B1);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonB2, KEY_BUTTON_B2);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonR2, KEY_BUTTON_R2);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonL2, KEY_BUTTON_L2);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonB3, KEY_BUTTON_B3);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonB4, KEY_BUTTON_B4);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonR1, KEY_BUTTON_R1);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonL1, KEY_BUTTON_L1);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonS1, KEY_BUTTON_S1);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonS2, KEY_BUTTON_S2);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonL3, KEY_BUTTON_L3);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonR3, KEY_BUTTON_R3);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonA1, KEY_BUTTON_A1);
+    INIT_UNSET_PROPERTY(config.addonOptions.keyboardHostOptions.mapping, keyButtonA2, KEY_BUTTON_A2);
+
+    // addonOptions.focusModeOptions
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, enabled, !!FOCUS_MODE_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, pin, FOCUS_MODE_PIN);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, buttonLockMask, FOCUS_MODE_BUTTON_MASK);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, oledLockEnabled, !!FOCUS_MODE_OLED_LOCK_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, rgbLockEnabled, !!FOCUS_MODE_RGB_LOCK_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, buttonLockEnabled, !!FOCUS_MODE_BUTTON_LOCK_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, macroLockEnabled, !!FOCUS_MODE_MACRO_LOCK_ENABLED);
+
+    // PS Passthrough
+    INIT_UNSET_PROPERTY(config.addonOptions.psPassthroughOptions, enabled, PSPASSTHROUGH_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.psPassthroughOptions, pinDplus, PSPASSTHROUGH_PIN_DPLUS);
+    INIT_UNSET_PROPERTY(config.addonOptions.psPassthroughOptions, pin5V, PSPASSTHROUGH_PIN_5V);
+
+    INIT_UNSET_PROPERTY(config.addonOptions.macroOptions, enabled, !!INPUT_MACRO_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.macroOptions, pin, INPUT_MACRO_PIN);
+    INIT_UNSET_PROPERTY(config.addonOptions.macroOptions, macroBoardLedEnabled, INPUT_MACRO_BOARD_LED_ENABLED);
+    config.addonOptions.macroOptions.macroList_count = 6;
+}
+
+
+// -----------------------------------------------------
+// migrations
+// used for when we might need to populate configs with
+// something *other than* the board defaults
+// -----------------------------------------------------
+
+// convert core and addon pin mappings to GPIO mapping config
+// NOTE: this also handles initializations for a blank config! if/when the deprecated
+// pin mappings go away, the remainder of this code should go in there (there was no point
+// in duplicating it right now)
+void gpioMappingsMigrationCore(Config& config)
+{
+    PinMappings& deprecatedPinMappings = config.deprecatedPinMappings;
+    ExtraButtonOptions& extraButtonOptions = config.addonOptions.deprecatedExtraButtonOptions;
+    DualDirectionalOptions& ddiOptions = config.addonOptions.dualDirectionalOptions;
+    SliderOptions& jsSliderOptions = config.addonOptions.sliderOptions;
+    SOCDSliderOptions& socdSliderOptions = config.addonOptions.socdSliderOptions;
+
+    const auto gamepadMaskToGpioAction = [&](Mask_t gpMask) -> GpioAction
+    {
+        switch (gpMask)
+        {
+            case GAMEPAD_MASK_DU:
+                return GpioAction::BUTTON_PRESS_UP;
+            case GAMEPAD_MASK_DD:
+                return GpioAction::BUTTON_PRESS_DOWN;
+            case GAMEPAD_MASK_DL:
+                return GpioAction::BUTTON_PRESS_LEFT;
+            case GAMEPAD_MASK_DR:
+                return GpioAction::BUTTON_PRESS_RIGHT;
+            case GAMEPAD_MASK_B1:
+                return GpioAction::BUTTON_PRESS_B1;
+            case GAMEPAD_MASK_B2:
+                return GpioAction::BUTTON_PRESS_B2;
+            case GAMEPAD_MASK_B3:
+                return GpioAction::BUTTON_PRESS_B3;
+            case GAMEPAD_MASK_B4:
+                return GpioAction::BUTTON_PRESS_B4;
+            case GAMEPAD_MASK_L1:
+                return GpioAction::BUTTON_PRESS_L1;
+            case GAMEPAD_MASK_R1:
+                return GpioAction::BUTTON_PRESS_R1;
+            case GAMEPAD_MASK_L2:
+                return GpioAction::BUTTON_PRESS_L2;
+            case GAMEPAD_MASK_R2:
+                return GpioAction::BUTTON_PRESS_R2;
+            case GAMEPAD_MASK_S1:
+                return GpioAction::BUTTON_PRESS_S1;
+            case GAMEPAD_MASK_S2:
+                return GpioAction::BUTTON_PRESS_S2;
+            case GAMEPAD_MASK_L3:
+                return GpioAction::BUTTON_PRESS_L3;
+            case GAMEPAD_MASK_R3:
+                return GpioAction::BUTTON_PRESS_R3;
+            case GAMEPAD_MASK_A1:
+                return GpioAction::BUTTON_PRESS_A1;
+            case GAMEPAD_MASK_A2:
+                return GpioAction::BUTTON_PRESS_A2;
+            case AUX_MASK_FUNCTION:
+                return GpioAction::BUTTON_PRESS_FN;
+            default:
+                return GpioAction::NONE;
+        }
+    };
+
+    // create an array of the old
+    GpioAction actions[NUM_BANK0_GPIOS] = {GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE,
+                                           GpioAction::NONE, GpioAction::NONE, GpioAction::NONE};
+
+    const auto fromPBorBC = [&](bool isInProtobuf, Pin_t *protobufEntry, Pin_t boardconfigValue,
+            GpioAction action) -> void {
+        // get the core config value for a pin either from protobuf or, failing that, BoardConfig.h
+        if (isInProtobuf) {
+            if (*protobufEntry >= 0 && *protobufEntry < 30) {
+                actions[*protobufEntry] = action;
+                *protobufEntry = -1;
+            }
+        } else if (isValidPin(boardconfigValue)) {
+            actions[boardconfigValue] = action;
+        }
+    };
+    fromPBorBC(deprecatedPinMappings.has_pinDpadUp,    &deprecatedPinMappings.pinDpadUp,    PIN_DPAD_UP,
+            GpioAction::BUTTON_PRESS_UP);
+    fromPBorBC(deprecatedPinMappings.has_pinDpadDown,  &deprecatedPinMappings.pinDpadDown,  PIN_DPAD_DOWN,
+            GpioAction::BUTTON_PRESS_DOWN);
+    fromPBorBC(deprecatedPinMappings.has_pinDpadLeft,  &deprecatedPinMappings.pinDpadLeft,  PIN_DPAD_LEFT,
+            GpioAction::BUTTON_PRESS_LEFT);
+    fromPBorBC(deprecatedPinMappings.has_pinDpadRight, &deprecatedPinMappings.pinDpadRight, PIN_DPAD_RIGHT,
+            GpioAction::BUTTON_PRESS_RIGHT);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonB1, &deprecatedPinMappings.pinButtonB1, PIN_BUTTON_B1,
+            GpioAction::BUTTON_PRESS_B1);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonB2, &deprecatedPinMappings.pinButtonB2, PIN_BUTTON_B2,
+            GpioAction::BUTTON_PRESS_B2);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonB3, &deprecatedPinMappings.pinButtonB3, PIN_BUTTON_B3,
+            GpioAction::BUTTON_PRESS_B3);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonB4, &deprecatedPinMappings.pinButtonB4, PIN_BUTTON_B4,
+            GpioAction::BUTTON_PRESS_B4);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonL1, &deprecatedPinMappings.pinButtonL1, PIN_BUTTON_L1,
+            GpioAction::BUTTON_PRESS_L1);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonR1, &deprecatedPinMappings.pinButtonR1, PIN_BUTTON_R1,
+            GpioAction::BUTTON_PRESS_R1);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonL2, &deprecatedPinMappings.pinButtonL2, PIN_BUTTON_L2,
+            GpioAction::BUTTON_PRESS_L2);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonR2, &deprecatedPinMappings.pinButtonR2, PIN_BUTTON_R2,
+            GpioAction::BUTTON_PRESS_R2);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonS1, &deprecatedPinMappings.pinButtonS1, PIN_BUTTON_S1,
+            GpioAction::BUTTON_PRESS_S1);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonS2, &deprecatedPinMappings.pinButtonS2, PIN_BUTTON_S2,
+            GpioAction::BUTTON_PRESS_S2);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonL3, &deprecatedPinMappings.pinButtonL3, PIN_BUTTON_L3,
+            GpioAction::BUTTON_PRESS_L3);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonR3, &deprecatedPinMappings.pinButtonR3, PIN_BUTTON_R3,
+            GpioAction::BUTTON_PRESS_R3);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonA1, &deprecatedPinMappings.pinButtonA1, PIN_BUTTON_A1,
+            GpioAction::BUTTON_PRESS_A1);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonA2, &deprecatedPinMappings.pinButtonA2, PIN_BUTTON_A2,
+            GpioAction::BUTTON_PRESS_A2);
+    fromPBorBC(deprecatedPinMappings.has_pinButtonFn, &deprecatedPinMappings.pinButtonFn, PIN_BUTTON_FN,
+            GpioAction::BUTTON_PRESS_FN);
+
+    // convert extra pin mapping to GPIO mapping config
+    if (extraButtonOptions.enabled && isValidPin(extraButtonOptions.pin)) {
+        // previous config had a value we haven't migrated yet, it can/should apply in the new config
+	actions[extraButtonOptions.pin] = gamepadMaskToGpioAction(extraButtonOptions.buttonMap);
+	extraButtonOptions.pin = -1;
+	extraButtonOptions.enabled = false;
+    }
+    else if (isValidPin(EXTRA_BUTTON_PIN))
+	actions[EXTRA_BUTTON_PIN] = gamepadMaskToGpioAction(EXTRA_BUTTON_MASK);
+
+    // convert DDI direction pin mapping to GPIO mapping config
+    if (ddiOptions.enabled) {
+        fromPBorBC(ddiOptions.has_deprecatedUpPin,    &ddiOptions.deprecatedUpPin,    PIN_DUAL_DIRECTIONAL_UP,
+                GpioAction::BUTTON_PRESS_DDI_UP);
+        fromPBorBC(ddiOptions.has_deprecatedDownPin,  &ddiOptions.deprecatedDownPin,  PIN_DUAL_DIRECTIONAL_DOWN,
+                GpioAction::BUTTON_PRESS_DDI_DOWN);
+        fromPBorBC(ddiOptions.has_deprecatedLeftPin,  &ddiOptions.deprecatedLeftPin,  PIN_DUAL_DIRECTIONAL_LEFT,
+                GpioAction::BUTTON_PRESS_DDI_LEFT);
+        fromPBorBC(ddiOptions.has_deprecatedRightPin, &ddiOptions.deprecatedRightPin, PIN_DUAL_DIRECTIONAL_RIGHT,
+                GpioAction::BUTTON_PRESS_DDI_RIGHT);
+    }
+
+    // convert JS slider pin mappings to GPIO mapping config
+    if (jsSliderOptions.enabled && isValidPin(jsSliderOptions.deprecatedPinSliderOne)) {
+        switch (jsSliderOptions.deprecatedModeOne) {
+            case DpadMode::DPAD_MODE_DIGITAL: {
+                actions[jsSliderOptions.deprecatedPinSliderOne] = GpioAction::SUSTAIN_DP_MODE_DP; break;
+            }
+            case DpadMode::DPAD_MODE_LEFT_ANALOG: {
+                actions[jsSliderOptions.deprecatedPinSliderOne] = GpioAction::SUSTAIN_DP_MODE_LS; break;
+            }
+            case DpadMode::DPAD_MODE_RIGHT_ANALOG: {
+                actions[jsSliderOptions.deprecatedPinSliderOne] = GpioAction::SUSTAIN_DP_MODE_RS; break;
+            }
+            default: break;
+        }
+        jsSliderOptions.deprecatedPinSliderOne = -1;
+    }
+    else if (isValidPin(PIN_SLIDER_ONE)) {
+        actions[PIN_SLIDER_ONE] = GpioAction::SUSTAIN_DP_MODE_LS;
+    }
+    if (jsSliderOptions.enabled && isValidPin(jsSliderOptions.deprecatedPinSliderTwo)) {
+        switch (jsSliderOptions.deprecatedModeTwo) {
+            case DpadMode::DPAD_MODE_DIGITAL: {
+                actions[jsSliderOptions.deprecatedPinSliderTwo] = GpioAction::SUSTAIN_DP_MODE_DP; break;
+            }
+            case DpadMode::DPAD_MODE_LEFT_ANALOG: {
+                actions[jsSliderOptions.deprecatedPinSliderTwo] = GpioAction::SUSTAIN_DP_MODE_LS; break;
+            }
+            case DpadMode::DPAD_MODE_RIGHT_ANALOG: {
+                actions[jsSliderOptions.deprecatedPinSliderTwo] = GpioAction::SUSTAIN_DP_MODE_RS; break;
+            }
+            default: break;
+        }
+        jsSliderOptions.deprecatedPinSliderTwo = -1;
+    }
+    else if (isValidPin(PIN_SLIDER_TWO)) {
+        actions[PIN_SLIDER_TWO] = GpioAction::SUSTAIN_DP_MODE_RS;
+    }
+
+    // convert SOCD slider pin mappings to GPIO mapping config
+    if (socdSliderOptions.enabled && isValidPin(socdSliderOptions.deprecatedPinOne)) {
+        switch (socdSliderOptions.deprecatedModeOne) {
+            case SOCDMode::SOCD_MODE_UP_PRIORITY: {
+                actions[socdSliderOptions.deprecatedPinOne] = GpioAction::SUSTAIN_SOCD_MODE_UP_PRIO; break;
+            }
+            case SOCDMode::SOCD_MODE_NEUTRAL: {
+                actions[socdSliderOptions.deprecatedPinOne] = GpioAction::SUSTAIN_SOCD_MODE_NEUTRAL; break;
+            }
+            case SOCDMode::SOCD_MODE_SECOND_INPUT_PRIORITY: {
+                actions[socdSliderOptions.deprecatedPinOne] = GpioAction::SUSTAIN_SOCD_MODE_SECOND_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_FIRST_INPUT_PRIORITY: {
+                actions[socdSliderOptions.deprecatedPinOne] = GpioAction::SUSTAIN_SOCD_MODE_FIRST_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_BYPASS: {
+                actions[socdSliderOptions.deprecatedPinOne] = GpioAction::SUSTAIN_SOCD_MODE_BYPASS; break;
+            }
+            default: break;
+        }
+        socdSliderOptions.deprecatedPinOne = -1;
+    }
+    else if (isValidPin(PIN_SLIDER_SOCD_ONE)) {
+        switch (SLIDER_SOCD_SLOT_ONE) {
+            case SOCDMode::SOCD_MODE_UP_PRIORITY: {
+                actions[PIN_SLIDER_SOCD_ONE] = GpioAction::SUSTAIN_SOCD_MODE_UP_PRIO; break;
+            }
+            case SOCDMode::SOCD_MODE_NEUTRAL: {
+                actions[PIN_SLIDER_SOCD_ONE] = GpioAction::SUSTAIN_SOCD_MODE_NEUTRAL; break;
+            }
+            case SOCDMode::SOCD_MODE_SECOND_INPUT_PRIORITY: {
+                actions[PIN_SLIDER_SOCD_ONE] = GpioAction::SUSTAIN_SOCD_MODE_SECOND_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_FIRST_INPUT_PRIORITY: {
+                actions[PIN_SLIDER_SOCD_ONE] = GpioAction::SUSTAIN_SOCD_MODE_FIRST_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_BYPASS: {
+                actions[PIN_SLIDER_SOCD_ONE] = GpioAction::SUSTAIN_SOCD_MODE_BYPASS; break;
+            }
+            default: break;
+        }
+    }
+    if (socdSliderOptions.enabled && isValidPin(socdSliderOptions.deprecatedPinTwo)) {
+        switch (socdSliderOptions.deprecatedModeTwo) {
+            case SOCDMode::SOCD_MODE_UP_PRIORITY: {
+                actions[socdSliderOptions.deprecatedPinTwo] = GpioAction::SUSTAIN_SOCD_MODE_UP_PRIO; break;
+            }
+            case SOCDMode::SOCD_MODE_NEUTRAL: {
+                actions[socdSliderOptions.deprecatedPinTwo] = GpioAction::SUSTAIN_SOCD_MODE_NEUTRAL; break;
+            }
+            case SOCDMode::SOCD_MODE_SECOND_INPUT_PRIORITY: {
+                actions[socdSliderOptions.deprecatedPinTwo] = GpioAction::SUSTAIN_SOCD_MODE_SECOND_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_FIRST_INPUT_PRIORITY: {
+                actions[socdSliderOptions.deprecatedPinTwo] = GpioAction::SUSTAIN_SOCD_MODE_FIRST_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_BYPASS: {
+                actions[socdSliderOptions.deprecatedPinTwo] = GpioAction::SUSTAIN_SOCD_MODE_BYPASS; break;
+            }
+            default: break;
+        }
+        socdSliderOptions.deprecatedPinTwo = -1;
+    }
+    else if (isValidPin(PIN_SLIDER_SOCD_TWO)) {
+        switch (SLIDER_SOCD_SLOT_TWO) {
+            case SOCDMode::SOCD_MODE_UP_PRIORITY: {
+                actions[PIN_SLIDER_SOCD_TWO] = GpioAction::SUSTAIN_SOCD_MODE_UP_PRIO; break;
+            }
+            case SOCDMode::SOCD_MODE_NEUTRAL: {
+                actions[PIN_SLIDER_SOCD_TWO] = GpioAction::SUSTAIN_SOCD_MODE_NEUTRAL; break;
+            }
+            case SOCDMode::SOCD_MODE_SECOND_INPUT_PRIORITY: {
+                actions[PIN_SLIDER_SOCD_TWO] = GpioAction::SUSTAIN_SOCD_MODE_SECOND_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_FIRST_INPUT_PRIORITY: {
+                actions[PIN_SLIDER_SOCD_TWO] = GpioAction::SUSTAIN_SOCD_MODE_FIRST_WIN; break;
+            }
+            case SOCDMode::SOCD_MODE_BYPASS: {
+                actions[PIN_SLIDER_SOCD_TWO] = GpioAction::SUSTAIN_SOCD_MODE_BYPASS; break;
+            }
+            default: break;
+        }
+    }
+
+    // flag additional pins as being used by an addon not managed here
+    const auto markAddonPinIfUsed = [&](Pin_t gpPin) -> void {
+        if (isValidPin(gpPin)) actions[gpPin] = GpioAction::ASSIGNED_TO_ADDON;
+    };
+    markAddonPinIfUsed(config.displayOptions.i2cSCLPin);
+    markAddonPinIfUsed(config.displayOptions.i2cSDAPin);
+    markAddonPinIfUsed(config.ledOptions.dataPin);
+    markAddonPinIfUsed(config.ledOptions.pledPin1);
+    markAddonPinIfUsed(config.ledOptions.pledPin2);
+    markAddonPinIfUsed(config.ledOptions.pledPin3);
+    markAddonPinIfUsed(config.ledOptions.pledPin4);
+    markAddonPinIfUsed(config.addonOptions.analogOptions.analogAdc1PinX);
+    markAddonPinIfUsed(config.addonOptions.analogOptions.analogAdc1PinY);
+    markAddonPinIfUsed(config.addonOptions.analogOptions.analogAdc2PinX);
+    markAddonPinIfUsed(config.addonOptions.analogOptions.analogAdc2PinY);
+    markAddonPinIfUsed(config.addonOptions.buzzerOptions.pin);
+    markAddonPinIfUsed(config.addonOptions.focusModeOptions.pin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.ledPin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.buttonPin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.shmupDialPin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.shmupBtn1Pin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.shmupBtn2Pin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.shmupBtn3Pin);
+    markAddonPinIfUsed(config.addonOptions.turboOptions.shmupBtn4Pin);
+    markAddonPinIfUsed(config.addonOptions.reverseOptions.buttonPin);
+    markAddonPinIfUsed(config.addonOptions.reverseOptions.ledPin);
+    markAddonPinIfUsed(config.addonOptions.analogADS1219Options.i2cSCLPin);
+    markAddonPinIfUsed(config.addonOptions.analogADS1219Options.i2cSDAPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tilt1Pin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tilt2Pin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltLeftAnalogUpPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltLeftAnalogDownPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltLeftAnalogLeftPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltLeftAnalogRightPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltRightAnalogUpPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltRightAnalogDownPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltRightAnalogLeftPin);
+    markAddonPinIfUsed(config.addonOptions.tiltOptions.tiltRightAnalogRightPin);
+    markAddonPinIfUsed(config.addonOptions.wiiOptions.i2cSCLPin);
+    markAddonPinIfUsed(config.addonOptions.wiiOptions.i2cSDAPin);
+    markAddonPinIfUsed(config.addonOptions.snesOptions.clockPin);
+    markAddonPinIfUsed(config.addonOptions.snesOptions.latchPin);
+    markAddonPinIfUsed(config.addonOptions.snesOptions.dataPin);
+    markAddonPinIfUsed(config.addonOptions.keyboardHostOptions.pin5V);
+    markAddonPinIfUsed(config.addonOptions.keyboardHostOptions.pinDplus);
+    if (isValidPin(config.addonOptions.keyboardHostOptions.pinDplus))
+        actions[config.addonOptions.keyboardHostOptions.pinDplus+1] = GpioAction::ASSIGNED_TO_ADDON;
+    markAddonPinIfUsed(config.addonOptions.psPassthroughOptions.pin5V);
+    markAddonPinIfUsed(config.addonOptions.psPassthroughOptions.pinDplus);
+    if (isValidPin(config.addonOptions.psPassthroughOptions.pinDplus))
+        actions[config.addonOptions.psPassthroughOptions.pinDplus+1] = GpioAction::ASSIGNED_TO_ADDON;
+    markAddonPinIfUsed(config.addonOptions.macroOptions.pin);
+    markAddonPinIfUsed(config.addonOptions.macroOptions.macroList[0].macroTriggerPin);
+    markAddonPinIfUsed(config.addonOptions.macroOptions.macroList[1].macroTriggerPin);
+    markAddonPinIfUsed(config.addonOptions.macroOptions.macroList[2].macroTriggerPin);
+    markAddonPinIfUsed(config.addonOptions.macroOptions.macroList[3].macroTriggerPin);
+    markAddonPinIfUsed(config.addonOptions.macroOptions.macroList[4].macroTriggerPin);
+    markAddonPinIfUsed(config.addonOptions.macroOptions.macroList[5].macroTriggerPin);
+
+    for (Pin_t pin = 0; pin < (Pin_t)NUM_BANK0_GPIOS; pin++) {
+        config.gpioMappings.pins[pin].action = actions[pin];
+    }
+    // reminder that this must be set or else nanopb won't retain anything
+    config.gpioMappings.pins_count = NUM_BANK0_GPIOS;
+
+    config.migrations.gpioMappingsMigrated = true;
+}
+
+// populate the alternative gpio mapping sets, aka profiles, with
+// the old values or whatever is in the core mappings
+// NOTE: this also handles initializations for a blank config! if/when the deprecated
+// pin mappings go away, the remainder of this code should go in there (there was no point
+// in duplicating it right now)
+void gpioMappingsMigrationProfiles(Config& config)
+{
+    AlternativePinMappings* deprecatedAlts = config.profileOptions.deprecatedAlternativePinMappings;
+
+    const auto assignProfilePinIfUsed = [&](uint8_t profileNum, Pin_t profilePin, GpioAction action) -> void {
+        if (isValidPin(profilePin)) {
+            config.profileOptions.gpioMappingsSets[profileNum].pins[profilePin].action = action;
+        }
+    };
+
+    for (uint8_t profileNum = 0; profileNum <= 2; profileNum++) {
+        for (Pin_t pin = 0; pin < (Pin_t)NUM_BANK0_GPIOS; pin++) {
+            config.profileOptions.gpioMappingsSets[profileNum].pins[pin].action = config.gpioMappings.pins[pin].action;
+        }
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonB1,  GpioAction::BUTTON_PRESS_B1);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonB2,  GpioAction::BUTTON_PRESS_B2);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonB3,  GpioAction::BUTTON_PRESS_B3);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonB4,  GpioAction::BUTTON_PRESS_B4);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonL1,  GpioAction::BUTTON_PRESS_L1);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonR1,  GpioAction::BUTTON_PRESS_R1);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonL2,  GpioAction::BUTTON_PRESS_L2);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinButtonR2,  GpioAction::BUTTON_PRESS_R2);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinDpadUp,    GpioAction::BUTTON_PRESS_UP);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinDpadDown,  GpioAction::BUTTON_PRESS_DOWN);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinDpadLeft,  GpioAction::BUTTON_PRESS_LEFT);
+        assignProfilePinIfUsed(profileNum, deprecatedAlts[profileNum].pinDpadRight, GpioAction::BUTTON_PRESS_RIGHT);
+
+        // reminder that this must be set or else nanopb won't retain anything
+        config.profileOptions.gpioMappingsSets[profileNum].pins_count = NUM_BANK0_GPIOS;
+    }
+    // reminder that this must be set or else nanopb won't retain anything
+    config.profileOptions.gpioMappingsSets_count = 3;
+
+    config.migrations.buttonProfilesMigrated = true;
+}
+
+// populate existing configurations' buttonsMask and auxMask to mirror behavior
+// from the behavior before this code merged. totally new configs get their
+// board defaults via initUnsetPropertiesWithDefaults
+void hotkeysMigration(Config& config)
+{
+    HotkeyOptions& hotkeys = config.hotkeyOptions;
+
+    // if dpadMask is defined and buttonsMask and auxMask aren't, then this
+    // hotkey was saved at least once in the past when the button shortcut was
+    // known as F1/F2, so they should be made to reflect the
+    // previously-hardcoded values for those hotkeys
+
+    // F1 == S1 | S2, no Fn
+    if (hotkeys.hotkey01.has_dpadMask && (!hotkeys.hotkey01.has_auxMask || !hotkeys.hotkey01.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey01, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey01, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
+    }
+    if (hotkeys.hotkey02.has_dpadMask && (!hotkeys.hotkey02.has_auxMask || !hotkeys.hotkey02.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey02, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey02, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
+    }
+    if (hotkeys.hotkey03.has_dpadMask && (!hotkeys.hotkey03.has_auxMask || !hotkeys.hotkey03.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey03, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey03, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
+    }
+    if (hotkeys.hotkey04.has_dpadMask && (!hotkeys.hotkey04.has_auxMask || !hotkeys.hotkey04.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey04, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey04, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
+    }
+
+    // F2 == S2 | A1, no Fn
+    if (hotkeys.hotkey05.has_dpadMask && (!hotkeys.hotkey05.has_auxMask || !hotkeys.hotkey05.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey05, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey05, buttonsMask, GAMEPAD_MASK_S2 | GAMEPAD_MASK_A1);
+    }
+    if (hotkeys.hotkey06.has_dpadMask && (!hotkeys.hotkey06.has_auxMask || !hotkeys.hotkey06.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey06, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey06, buttonsMask, GAMEPAD_MASK_S2 | GAMEPAD_MASK_A1);
+    }
+    if (hotkeys.hotkey07.has_dpadMask && (!hotkeys.hotkey07.has_auxMask || !hotkeys.hotkey07.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey07, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey07, buttonsMask, GAMEPAD_MASK_S2 | GAMEPAD_MASK_A1);
+    }
+    if (hotkeys.hotkey08.has_dpadMask && (!hotkeys.hotkey08.has_auxMask || !hotkeys.hotkey08.has_buttonsMask)) {
+	INIT_UNSET_PROPERTY(hotkeys.hotkey08, auxMask, 0);
+	INIT_UNSET_PROPERTY(hotkeys.hotkey08, buttonsMask, GAMEPAD_MASK_S2 | GAMEPAD_MASK_A1);
+    }
+
+    config.migrations.hotkeysMigrated = true;
 }
 
 // -----------------------------------------------------
@@ -464,6 +1076,9 @@ void ConfigUtils::load(Config& config)
         config = Config Config_init_default;
     }
 
+    // run migrations
+    if (!config.migrations.hotkeysMigrated) hotkeysMigration(config);
+
     // Make sure that fields that were not deserialized are properly initialized.
     // They were probably added with a newer version of the firmware.
     initUnsetPropertiesWithDefaults(config);
@@ -471,6 +1086,10 @@ void ConfigUtils::load(Config& config)
     // ----------------------------------------
     // Further migrations can be performed here
     // ----------------------------------------
+
+    // run migrations that need to happen after initUnset...
+    if (!config.migrations.gpioMappingsMigrated) gpioMappingsMigrationCore(config);
+    if (!config.migrations.buttonProfilesMigrated) gpioMappingsMigrationProfiles(config);
 
     // Update boardVersion, in case we migrated from an older version
     strncpy(config.boardVersion, GP2040VERSION, sizeof(config.boardVersion));
@@ -494,18 +1113,47 @@ static void setHasFlags(const pb_msgdesc_t* fields, void* s)
         // Not implemented for extension fields
         assert(PB_LTYPE(iter.type) != PB_LTYPE_EXTENSION);
 
-        if (PB_HTYPE(iter.type) == PB_HTYPE_OPTIONAL && iter.pSize)
+        switch (PB_HTYPE(iter.type))
         {
-            *reinterpret_cast<char*>(iter.pSize) = true;
-        }
+            case PB_HTYPE_OPTIONAL:
+            {
+                *reinterpret_cast<bool*>(iter.pSize) = true;
 
-        // Recurse into sub-messages
-        if (PB_LTYPE(iter.type) == PB_LTYPE_SUBMESSAGE)
-        {
-            assert(iter.submsg_desc);
-            assert(iter.pData);
+                // Recurse into sub-messages
+                if (PB_LTYPE(iter.type) == PB_LTYPE_SUBMESSAGE)
+                {
+                    assert(iter.submsg_desc);
+                    assert(iter.pData);
 
-            setHasFlags(iter.submsg_desc, iter.pData);
+                    setHasFlags(iter.submsg_desc, iter.pData);
+                }
+                break;
+            }
+
+            case PB_HTYPE_REPEATED:
+            {
+                // Recurse into sub-messages
+                if (PB_LTYPE(iter.type) == PB_LTYPE_SUBMESSAGE)
+                {
+                    assert(iter.submsg_desc);
+                    assert(iter.pData);
+                    assert(iter.pSize);
+
+                    const pb_size_t array_size = *reinterpret_cast<pb_size_t*>(iter.pSize);
+                    pb_byte_t* item_ptr = reinterpret_cast<pb_byte_t*>(iter.pData);
+                    for (pb_size_t index = 0; index < array_size; ++index)
+                    {
+                        setHasFlags(iter.submsg_desc, item_ptr);
+                        item_ptr += iter.data_size;
+                    }
+                }
+                break;
+            }
+
+            default:
+                // We do not support any other htypes of fields
+                assert(false);
+                continue;
         }
     } while (pb_field_iter_next(&iter));
 }
@@ -588,7 +1236,7 @@ static void __attribute__((noinline)) appendAsString(std::string& str, uint32_t 
 #define TO_JSON_BYTES(fieldname, submessageType) str.push_back('"'); str.append(Base64::Encode(reinterpret_cast<const char*>(s.fieldname.bytes), s.fieldname.size)); str.push_back('"');
 #define TO_JSON_MESSAGE(fieldname, submessageType) PREPROCESSOR_JOIN(toJSON, submessageType)(str, s.fieldname, indentLevel + 1);
 
-#define TO_JSON_REPEATED_RENUM(fieldname, submessageType) appendAsString(str, static_cast<int32_t>(s.fieldname[i]));
+#define TO_JSON_REPEATED_ENUM(fieldname, submessageType) appendAsString(str, static_cast<int32_t>(s.fieldname[i]));
 #define TO_JSON_REPEATED_UENUM(fieldname, submessageType) appendAsString(str, static_cast<uint32_t>(s.fieldname[i]));
 #define TO_JSON_REPEATED_INT32(fieldname, submessageType) appendAsString(str, s.fieldname[i]);
 #define TO_JSON_REPEATED_UINT32(fieldname, submessageType) appendAsString(str, s.fieldname[i]);
@@ -620,12 +1268,15 @@ static void __attribute__((noinline)) appendAsString(std::string& str, uint32_t 
 #define TO_JSON_POINTER(htype, ltype, fieldname, submessageType) static_assert(false, "not supported");
 #define TO_JSON_CALLBACK(htype, ltype, fieldname, submessageType) static_assert(false, "not supported");
 
-#define TO_JSON_FIELD(parenttype, atype, htype, ltype, fieldname, tag) \
-    if (!firstField) str.append(",\n"); \
-    firstField = false; \
-    writeIndentation(str, indentLevel); \
-    str.append("\"" #fieldname "\": "); \
-    PREPROCESSOR_JOIN(TO_JSON_, atype)(htype, ltype, fieldname, parenttype ## _ ## fieldname ## _MSGTYPE)
+#define TO_JSON_FIELD(parenttype, atype, htype, ltype, fieldname, tag, disallow_export) \
+    if (!disallow_export) \
+    { \
+        if (!firstField) str.append(",\n"); \
+        firstField = false; \
+        writeIndentation(str, indentLevel); \
+        str.append("\"" #fieldname "\": "); \
+        PREPROCESSOR_JOIN(TO_JSON_, atype)(htype, ltype, fieldname, parenttype ## _ ## fieldname ## _MSGTYPE) \
+    }
 
 #define GEN_TO_JSON_FUNCTION_DECL(structtype) static void toJSON ## structtype(std::string& str, const structtype& s, int indentLevel);
 
@@ -725,50 +1376,71 @@ std::string ConfigUtils::toJSON(const Config& config)
         } \
     }
 
-#define FROM_JSON_INT32(fieldname, submessageType) \
-    if (jsonObject.containsKey(#fieldname)) \
-    { \
-        JsonVariantConst value = jsonObject[#fieldname]; \
-        if (value.is<int>()) \
-        { \
-            configStruct.fieldname = value.as<int>(); \
-            configStruct.PREPROCESSOR_JOIN(has_, fieldname) = true; \
-        } \
-        else \
-        { \
-            return false; \
-        } \
+static bool fromJsonInt32(JsonObjectConst jsonObject, const char* fieldname, int32_t& value, bool& flag)
+{
+    if (jsonObject.containsKey(fieldname))
+    {
+        JsonVariantConst jsonVariant = jsonObject[fieldname];
+        if (jsonVariant.is<int>())
+        {
+            value = jsonVariant.as<int>();
+            flag = true;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
-#define FROM_JSON_UINT32(fieldname, submessageType) \
-    if (jsonObject.containsKey(#fieldname)) \
-    { \
-        JsonVariantConst value = jsonObject[#fieldname]; \
-        if (value.is<unsigned int>()) \
-        { \
-            configStruct.fieldname = value.as<unsigned int>(); \
-            configStruct.PREPROCESSOR_JOIN(has_, fieldname) = true; \
-        } \
-        else \
-        { \
-            return false; \
-        } \
+    return true;
+}
+
+#define FROM_JSON_INT32(fieldname, submessageType) if (!fromJsonInt32(jsonObject, #fieldname, configStruct.fieldname, configStruct.PREPROCESSOR_JOIN(has_, fieldname))) { return false; }
+
+static bool fromJsonUint32(JsonObjectConst jsonObject, const char* fieldname, uint32_t& value, bool& flag)
+{
+    if (jsonObject.containsKey(fieldname))
+    {
+        JsonVariantConst jsonVariant = jsonObject[fieldname];
+        if (jsonVariant.is<unsigned int>())
+        {
+            value = jsonVariant.as<unsigned int>();
+            flag = true;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
-#define FROM_JSON_BOOL(fieldname, submessageType) \
-    if (jsonObject.containsKey(#fieldname)) \
-    { \
-        JsonVariantConst value = jsonObject[#fieldname]; \
-        if (value.is<bool>()) \
-        { \
-            configStruct.fieldname = value.as<bool>(); \
-            configStruct.PREPROCESSOR_JOIN(has_, fieldname) = true; \
-        } \
-        else \
-        { \
-            return false; \
-        } \
+    return true;
+}
+
+#define FROM_JSON_UINT32(fieldname, submessageType) if (!fromJsonUint32(jsonObject, #fieldname, configStruct.fieldname, configStruct.PREPROCESSOR_JOIN(has_, fieldname))) { return false; }
+
+static bool fromJsonBool(JsonObjectConst jsonObject, const char* fieldname, bool& value, bool& flag)
+{
+    if (jsonObject.containsKey(fieldname))
+    {
+        JsonVariantConst jsonVariant = jsonObject[fieldname];
+        if (jsonVariant.is<bool>())
+        {
+            value = jsonVariant.as<bool>();
+            flag = true;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
+
+    return true;
+}
+
+#define FROM_JSON_BOOL(fieldname, submessageType) if (!fromJsonBool(jsonObject, #fieldname, configStruct.fieldname, configStruct.PREPROCESSOR_JOIN(has_, fieldname))) { return false; }
 
 #define FROM_JSON_STRING(fieldname, submessageType) \
     if (jsonObject.containsKey(#fieldname)) \
@@ -786,7 +1458,7 @@ std::string ConfigUtils::toJSON(const Config& config)
         } \
     }
 
-bool fromJsonBytes(JsonObjectConst jsonObject, const char* fieldname, uint8_t* bytes, uint16_t& size, size_t maxSize)
+static bool fromJsonBytes(JsonObjectConst jsonObject, const char* fieldname, uint8_t* bytes, uint16_t& size, size_t maxSize)
 {
     if (jsonObject.containsKey(fieldname))
     {
@@ -948,7 +1620,7 @@ bool fromJsonBytes(JsonObjectConst jsonObject, const char* fieldname, uint8_t* b
 #define FROM_JSON_POINTER(htype, ltype, fieldname, submessageType) static_assert(false, "not supported");
 #define FROM_JSON_CALLBACK(htype, ltype, fieldname, submessageType) static_assert(false, "not supported");
 
-#define FROM_JSON_FIELD(parenttype, atype, htype, ltype, fieldname, tag) \
+#define FROM_JSON_FIELD(parenttype, atype, htype, ltype, fieldname, tag, disallow_export) \
     PREPROCESSOR_JOIN(FROM_JSON_, atype)(htype, ltype, fieldname, parenttype ## _ ## fieldname)
 
 #define GEN_FROM_JSON_FUNCTION_DECL(structtype) static bool fromJSON ## structtype(JsonObjectConst jsonObject, structtype& configStruct);
@@ -986,6 +1658,10 @@ bool ConfigUtils::fromJSON(Config& config, const char* data, size_t dataLen)
     }
 
     initUnsetPropertiesWithDefaults(config);
+
+    // we need to run migrations here too, in case the json document changed pins or things derived from pins
+    gpioMappingsMigrationCore(config);
+    gpioMappingsMigrationProfiles(config);
 
     return true;
 }

@@ -12,9 +12,29 @@
 #include "addons/neopicoleds.h"
 #include "addons/pleds.h"
 #include "themes.h"
+#include "usb_driver.h"
 
 #include "enums.h"
 #include "helper.h"
+
+const std::string BUTTON_LABEL_UP = "Up";
+const std::string BUTTON_LABEL_DOWN = "Down";
+const std::string BUTTON_LABEL_LEFT = "Left";
+const std::string BUTTON_LABEL_RIGHT = "Right";
+const std::string BUTTON_LABEL_B1 = "B1";
+const std::string BUTTON_LABEL_B2 = "B2";
+const std::string BUTTON_LABEL_B3 = "B3";
+const std::string BUTTON_LABEL_B4 = "B4";
+const std::string BUTTON_LABEL_L1 = "L1";
+const std::string BUTTON_LABEL_R1 = "R1";
+const std::string BUTTON_LABEL_L2 = "L2";
+const std::string BUTTON_LABEL_R2 = "R2";
+const std::string BUTTON_LABEL_S1 = "S1";
+const std::string BUTTON_LABEL_S2 = "S2";
+const std::string BUTTON_LABEL_L3 = "L3";
+const std::string BUTTON_LABEL_R3 = "R3";
+const std::string BUTTON_LABEL_A1 = "A1";
+const std::string BUTTON_LABEL_A2 = "A2";
 
 static std::vector<uint8_t> EMPTY_VECTOR;
 
@@ -91,6 +111,7 @@ void NeoPicoLEDAddon::setup()
 {
 	// Set Default LED Options
 	const LEDOptions& ledOptions = Storage::getInstance().getLedOptions();
+	turnOffWhenSuspended = ledOptions.turnOffWhenSuspended;
 
 	if ( ledOptions.pledType == PLED_TYPE_RGB ) {
 		neoPLEDs = new NeoPicoPlayerLEDs();
@@ -103,6 +124,9 @@ void NeoPicoLEDAddon::setup()
 	configureLEDs();
 
 	nextRunTime = make_timeout_time_ms(0); // Reset timeout
+	const FocusModeOptions& focusModeOptions = Storage::getInstance().getAddonOptions().focusModeOptions;
+	isFocusModeEnabled = focusModeOptions.enabled && focusModeOptions.rgbLockEnabled &&
+		isValidPin(focusModeOptions.pin);
 }
 
 void NeoPicoLEDAddon::process()
@@ -116,12 +140,10 @@ void NeoPicoLEDAddon::process()
 	AnimationHotkey action = animationHotkeys(gamepad);
 	if (ledOptions.pledType == PLED_TYPE_RGB) {
 		inputMode = gamepad->getOptions().inputMode; // HACK
-		switch (gamepad->getOptions().inputMode) {
-			case INPUT_MODE_XINPUT:
-				animationState = getXInputAnimationNEOPICO(featureData);
-				if (neoPLEDs != nullptr && animationState.animation != PLED_ANIM_NONE)
-					neoPLEDs->animate(animationState);
-				break;
+		if (inputMode == INPUT_MODE_XINPUT) {
+			animationState = getXInputAnimationNEOPICO(featureData);
+			if (neoPLEDs != nullptr && animationState.animation != PLED_ANIM_NONE)
+				neoPLEDs->animate(animationState);
 		}
 	}
 
@@ -145,22 +167,42 @@ void NeoPicoLEDAddon::process()
 		as.ClearPressed();
 
 	as.Animate();
+
+	if (isFocusModeEnabled) {
+		const FocusModeOptions& focusModeOptions = Storage::getInstance().getAddonOptions().focusModeOptions;
+		bool isFocusModeActive = !gpio_get(focusModeOptions.pin);
+		if (focusModePrevState != isFocusModeActive) {
+			focusModePrevState = isFocusModeActive;
+			if (isFocusModeActive) {
+				as.DimBrightnessTo0();
+			} else {
+				as.SetBrightness(AnimationStation::GetBrightness());
+			}
+		}
+	}
+
+	if (turnOffWhenSuspended && get_usb_suspended()) {
+		as.DimBrightnessTo0();
+	} else {
+		as.SetBrightness(AnimationStation::GetBrightness());
+	}
+
 	as.ApplyBrightness(frame);
 
 	// Apply the player LEDs to our first 4 leds if we're in NEOPIXEL mode
 	if (ledOptions.pledType == PLED_TYPE_RGB) {
-		switch (inputMode) { // HACK
-			case INPUT_MODE_XINPUT:
-				auto pledPins = Storage::getInstance().getPLEDPins();
-				for (int i = 0; i < PLED_COUNT; i++) {
-					if (pledPins[i] < 0)
-						continue;
+		if (inputMode == INPUT_MODE_XINPUT) { // HACK
+			LEDOptions & ledOptions = Storage::getInstance().getLedOptions();
+			int32_t pledPins[] = { ledOptions.pledPin1, ledOptions.pledPin2, ledOptions.pledPin3, ledOptions.pledPin4 };
+			for (int i = 0; i < PLED_COUNT; i++) {
+				if (pledPins[i] < 0)
+					continue;
 
-					float level = (static_cast<float>(PLED_MAX_LEVEL - neoPLEDs->getLedLevels()[i]) / static_cast<float>(PLED_MAX_LEVEL));
-					float brightness = as.GetBrightnessX() * level;
-					rgbPLEDValues[i] = ((RGB)ledOptions.pledColor).value(neopico->GetFormat(), brightness);
-					frame[pledPins[i]] = rgbPLEDValues[i];
-				}
+				float level = (static_cast<float>(PLED_MAX_LEVEL - neoPLEDs->getLedLevels()[i]) / static_cast<float>(PLED_MAX_LEVEL));
+				float brightness = as.GetBrightnessX() * level;
+				rgbPLEDValues[i] = ((RGB)ledOptions.pledColor).value(neopico->GetFormat(), brightness);
+				frame[pledPins[i]] = rgbPLEDValues[i];
+			}
 		}
 	}
 
@@ -427,6 +469,9 @@ std::vector<std::vector<Pixel>> NeoPicoLEDAddon::createLEDLayout(ButtonLayout la
 
 		case BUTTON_LAYOUT_FIGHTBOARD_MIRRORED:
 			return generatedLEDWasdFBM(&positions);
+
+		case BUTTON_LAYOUT_OPENCORE0WASDA:
+			return generatedLEDStickless(&positions);
 	}
 
 	assert(false);
@@ -456,7 +501,7 @@ uint8_t NeoPicoLEDAddon::setupButtonPositions()
 	buttonPositions.emplace(BUTTON_LABEL_A1, ledOptions.indexA1);
 	buttonPositions.emplace(BUTTON_LABEL_A2, ledOptions.indexA2);
 	uint8_t buttonCount = 0;
-	for (auto const buttonPosition : buttonPositions)
+	for (auto const& buttonPosition : buttonPositions)
 	{
 		if (buttonPosition.second > -1)
 			buttonCount++;
@@ -493,47 +538,47 @@ AnimationHotkey animationHotkeys(Gamepad *gamepad)
 {
 	AnimationHotkey action = HOTKEY_LEDS_NONE;
 
-	if (gamepad->pressedF1())
+	if (gamepad->pressedS1() && gamepad->pressedS2())
 	{
 		if (gamepad->pressedB3())
 		{
 			action = HOTKEY_LEDS_ANIMATION_UP;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_B3 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_B3 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedB1())
 		{
 			action = HOTKEY_LEDS_ANIMATION_DOWN;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_B1 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_B1 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedB4())
 		{
 			action = HOTKEY_LEDS_BRIGHTNESS_UP;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_B4 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_B4 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedB2())
 		{
 			action = HOTKEY_LEDS_BRIGHTNESS_DOWN;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_B2 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_B2 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedR1())
 		{
 			action = HOTKEY_LEDS_PARAMETER_UP;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_R1 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_R1 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedR2())
 		{
 			action = HOTKEY_LEDS_PARAMETER_DOWN;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_R2 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_R2 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedL1())
 		{
 			action = HOTKEY_LEDS_PRESS_PARAMETER_UP;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_L1 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_L1 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 		else if (gamepad->pressedL2())
 		{
 			action = HOTKEY_LEDS_PRESS_PARAMETER_DOWN;
-			gamepad->state.buttons &= ~(GAMEPAD_MASK_L2 | gamepad->f1Mask);
+			gamepad->state.buttons &= ~(GAMEPAD_MASK_L2 | GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
 		}
 	}
 

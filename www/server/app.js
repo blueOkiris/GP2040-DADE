@@ -2,12 +2,20 @@
  * GP2040-CE Configurator Development Server
  */
 
-const express = require("express");
-const cors = require("cors");
-const mapValues = require("lodash/mapValues");
+import express from 'express';
+import cors from 'cors';
+import mapValues from 'lodash/mapValues.js';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { DEFAULT_KEYBOARD_MAPPING } from '../src/Data/Keyboard.js';
 
-const { pico: picoController } = require("../src/Data/Controllers.json");
-const { keyboard: keyboardMapping } = require("../src/Data/Keyboard.json");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const { pico: picoController } = JSON.parse(
+	readFileSync(path.resolve(__dirname, '../src/Data/Controllers.json'), 'utf8'),
+);
 
 const port = process.env.PORT || 8080;
 
@@ -15,24 +23,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use((req, res, next) => {
-	console.log("Request:", req.method, req.url);
+	console.log('Request:', req.method, req.url);
 	next();
 });
 
-app.get("/api/getUsedPins", (req, res) => {
+app.get('/api/getUsedPins', (req, res) => {
 	return res.send({ usedPins: Object.values(picoController) });
-})
+});
 
-app.get("/api/resetSettings", (req, res) => {
+app.get('/api/resetSettings', (req, res) => {
 	return res.send({ success: true });
 });
 
-app.get("/api/getDisplayOptions", (req, res) => {
+app.get('/api/getDisplayOptions', (req, res) => {
 	const data = {
 		enabled: 1,
 		sdaPin: 0,
 		sclPin: 1,
-		i2cAddress: "0x3D",
+		i2cAddress: 61,
 		i2cBlock: 0,
 		i2cSpeed: 400000,
 		flipDisplay: 0,
@@ -61,20 +69,21 @@ app.get("/api/getDisplayOptions", (req, res) => {
 		},
 
 		displaySaverTimeout: 0,
+		turnOffWhenSuspended: 0,
 	};
-	console.log("data", data);
+	console.log('data', data);
 	return res.send(data);
 });
 
-app.get("/api/getSplashImage", (req, res) => {
+app.get('/api/getSplashImage', (req, res) => {
 	const data = {
 		splashImage: Array(16 * 64).fill(255),
 	};
-	console.log("data", data);
+	console.log('data', data);
 	return res.send(data);
 });
 
-app.get("/api/getGamepadOptions", (req, res) => {
+app.get('/api/getGamepadOptions', (req, res) => {
 	return res.send({
 		dpadMode: 0,
 		inputMode: 4,
@@ -82,22 +91,103 @@ app.get("/api/getGamepadOptions", (req, res) => {
 		switchTpShareForDs4: 0,
 		forcedSetupMode: 0,
 		lockHotkeys: 0,
-		hotkeyF1: [
-			{ action: 1, mask: 1<<0 },
-			{ action: 2, mask: 1<<1 },
-			{ action: 3, mask: 1<<2 },
-			{ action: 4, mask: 1<<3 },
-		 ],
-		hotkeyF2: [
-			{ action: 5, mask: 1<<0 },
-			{ action: 6, mask: 1<<1 },
-			{ action: 7, mask: 1<<2 },
-			{ action: 8, mask: 1<<3 },
-		 ]
+		fourWayMode: 0,
+		fnButtonPin: -1,
+		profileNumber: 1,
+		ps4ControllerType: 0,
+		debounceDelay: 5,
+        inputModeB1: 1,
+        inputModeB2: 0,
+        inputModeB3: 2,
+        inputModeB4: 4,
+        inputModeL1: -1,
+        inputModeL2: -1,
+        inputModeR1: -1,
+        inputModeR2: 3,
+		hotkey01: {
+			auxMask: 32768,
+			buttonsMask: 66304,
+			action: 4,
+		},
+		hotkey02: {
+			auxMask: 0,
+			buttonsMask: 131840,
+			action: 1,
+		},
+		hotkey03: {
+			auxMask: 0,
+			buttonsMask: 262912,
+			action: 2,
+		},
+		hotkey04: {
+			auxMask: 0,
+			buttonsMask: 525056,
+			action: 3,
+		},
+		hotkey05: {
+			auxMask: 0,
+			buttonsMask: 70144,
+			action: 6,
+		},
+		hotkey06: {
+			auxMask: 0,
+			buttonsMask: 135680,
+			action: 7,
+		},
+		hotkey07: {
+			auxMask: 0,
+			buttonsMask: 266752,
+			action: 8,
+		},
+		hotkey08: {
+			auxMask: 0,
+			buttonsMask: 528896,
+			action: 10,
+		},
+		hotkey09: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey10: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey11: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey12: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey13: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey14: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey15: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
+		hotkey16: {
+			auxMask: 0,
+			buttonsMask: 0,
+			action: 0,
+		},
 	});
 });
 
-app.get("/api/getLedOptions", (req, res) => {
+app.get('/api/getLedOptions', (req, res) => {
 	return res.send({
 		brightnessMaximum: 255,
 		brightnessSteps: 5,
@@ -132,6 +222,7 @@ app.get("/api/getLedOptions", (req, res) => {
 		pledPin3: 14,
 		pledPin4: 15,
 		pledColor: 65280,
+		turnOffWhenSuspended: 0,
 	});
 });
 
@@ -160,22 +251,136 @@ app.get('/api/getCustomTheme', (req, res) => {
 	});
 });
 
-app.get("/api/getPinMappings", (req, res) => {
+app.get('/api/getPinMappings', (req, res) => {
 	return res.send(picoController);
 });
 
-app.get("/api/getKeyMappings", (req, res) =>
-	res.send(mapValues(keyboardMapping))
+app.get('/api/getKeyMappings', (req, res) =>
+	res.send(mapValues(DEFAULT_KEYBOARD_MAPPING)),
 );
 
-app.get("/api/getAddonsOptions", (req, res) => {
+app.get('/api/getPeripheralOptions', (req, res) => {
+	return res.send({
+		peripheral: {
+			i2c0: {
+				enabled: 1,
+				sda: 0,
+				scl: 1,
+				speed: 400000,
+			},
+			i2c1: {
+				enabled: 0,
+				sda: -1,
+				scl: -1,
+				speed: 400000,
+			},
+			spi0: {
+				enabled: 0,
+				rx: -1,
+				cs: -1,
+				sck: -1,
+				tx: -1,
+			},
+			spi1: {
+				enabled: 0,
+				rx: -1,
+				cs: -1,
+				sck: -1,
+				tx: -1,
+			},
+			usb0: {
+				enabled: 0,
+				dp: -1,
+				enable5v: -1,
+				order: 0,
+			},
+		},
+	});
+});
+
+app.get('/api/getWiiControls', (req, res) =>
+	res.send({
+		'nunchuk.analogStick.x.axisType': 1,
+		'nunchuk.analogStick.y.axisType': 2,
+		'nunchuk.buttonC': 1,
+		'nunchuk.buttonZ': 2,
+		'classic.analogLeftStick.x.axisType': 1,
+		'classic.analogLeftStick.y.axisType': 2,
+		'classic.analogRightStick.x.axisType': 3,
+		'classic.analogRightStick.y.axisType': 4,
+		'classic.analogLeftTrigger.axisType': 7,
+		'classic.analogRightTrigger.axisType': 8,
+		'classic.buttonA': 2,
+		'classic.buttonB': 1,
+		'classic.buttonX': 8,
+		'classic.buttonY': 4,
+		'classic.buttonL': 64,
+		'classic.buttonR': 128,
+		'classic.buttonZL': 16,
+		'classic.buttonZR': 32,
+		'classic.buttonMinus': 256,
+		'classic.buttonHome': 4096,
+		'classic.buttonPlus': 512,
+		'classic.buttonUp': 65536,
+		'classic.buttonDown': 131072,
+		'classic.buttonLeft': 262144,
+		'classic.buttonRight': 524288,
+		'guitar.analogStick.x.axisType': 1,
+		'guitar.analogStick.y.axisType': 2,
+		'guitar.analogWhammyBar.axisType': 14,
+		'guitar.buttonOrange': 64,
+		'guitar.buttonRed': 2,
+		'guitar.buttonBlue': 4,
+		'guitar.buttonGreen': 1,
+		'guitar.buttonYellow': 8,
+		'guitar.buttonPedal': 128,
+		'guitar.buttonMinus': 256,
+		'guitar.buttonPlus': 512,
+		'guitar.buttonStrumUp': 65536,
+		'guitar.buttonStrumDown': 131072,
+		'drum.analogStick.x.axisType': 1,
+		'drum.analogStick.y.axisType': 2,
+		'drum.buttonOrange': 64,
+		'drum.buttonRed': 2,
+		'drum.buttonBlue': 8,
+		'drum.buttonGreen': 1,
+		'drum.buttonYellow': 4,
+		'drum.buttonPedal': 128,
+		'drum.buttonMinus': 256,
+		'drum.buttonPlus': 512,
+		'turntable.analogStick.x.axisType': 1,
+		'turntable.analogStick.y.axisType': 2,
+		'turntable.analogLeftTurntable.axisType': 13,
+		'turntable.analogRightTurntable.axisType': 15,
+		'turntable.analogFader.axisType': 7,
+		'turntable.analogEffects.axisType': 8,
+		'turntable.buttonLeftGreen': 262144,
+		'turntable.buttonLeftRed': 65536,
+		'turntable.buttonLeftBlue': 524288,
+		'turntable.buttonRightGreen': 4,
+		'turntable.buttonRightRed': 8,
+		'turntable.buttonRightBlue': 2,
+		'turntable.buttonEuphoria': 32,
+		'turntable.buttonMinus': 256,
+		'turntable.buttonPlus': 512,
+		'taiko.buttonDonLeft': 262144,
+		'taiko.buttonKatLeft': 64,
+		'taiko.buttonDonRight': 1,
+		'taiko.buttonKatRight': 128,
+	}),
+);
+
+app.get('/api/getProfileOptions', (req, res) => {
+	return res.send({
+		alternativePinMappings: [picoController, picoController, picoController],
+	});
+});
+
+app.get('/api/getAddonsOptions', (req, res) => {
 	return res.send({
 		turboPin: -1,
 		turboPinLED: -1,
-		sliderLSPin: -1,
-		sliderRSPin: -1,
-		sliderSOCDPinOne: -1,
-		sliderSOCDPinTwo: -1,
+		sliderModeZero: 0,
 		turboShotCount: 20,
 		reversePin: -1,
 		reversePinLED: -1,
@@ -189,19 +394,47 @@ app.get("/api/getAddonsOptions", (req, res) => {
 		i2cAnalog1219Speed: 400000,
 		i2cAnalog1219Address: 0x40,
 		onBoardLedMode: 0,
-		dualDirUpPin: -1,
-		dualDirDownPin: -1,
-		dualDirLeftPin: -1,
-		dualDirRightPin: -1,
 		dualDirDpadMode: 0,
 		dualDirCombineMode: 0,
-		analogAdcPinX: -1,
-		analogAdcPinY: -1,
+		dualDirFourWayMode: 0,
+		tilt1Pin: -1,
+		factorTilt1LeftX: -1,
+		factorTilt1LeftY: -1,
+		factorTilt1RightX: -1,
+		factorTilt1RightY: -1,
+		tilt2Pin: -1,
+		factorTilt2LeftX: -1,
+		factorTilt2LeftY: -1,
+		factorTilt2RightX: -1,
+		factorTilt2RightY: -1,
+		tiltLeftAnalogUpPin: -1,
+		tiltLeftAnalogDownPin: -1,
+		tiltLeftAnalogLeftPin: -1,
+		tiltLeftAnalogRightPin: -1,
+		tiltRightAnalogUpPin: -1,
+		tiltRightAnalogDownPin: -1,
+		tiltRightAnalogLeftPin: -1,
+		tiltRightAnalogRightPin: -1,
+		tiltSOCDMode: 0,
+		analogAdc1PinX: -1,
+		analogAdc1PinY: -1,
+		analogAdc1Mode: 1,
+		analogAdc1Invert: 0,
+		analogAdc2PinX: -1,
+		analogAdc2PinY: -1,
+		analogAdc2Mode: 2,
+		analogAdc2Invert: 0,
+		forced_circularity: 0,
+		analog_deadzone: 5,
+		auto_calibrate: 0,
 		bootselButtonMap: 0,
 		buzzerPin: -1,
 		buzzerVolume: 100,
-		extraButtonPin: -1,
-		extraButtonMap: 0,
+		focusModePin: -1,
+		focusModeButtonLockMask: 0,
+		focusModeButtonLockEnabled: 0,
+		focusModeButtonLockOledLockEnabled: 0,
+		focusModeButtonLockRgbLockEnabled: 0,
 		playerNumber: 1,
 		shmupMode: 0,
 		shmupMixMode: 0,
@@ -218,8 +451,6 @@ app.get("/api/getAddonsOptions", (req, res) => {
 		shmupBtnMask3: 0,
 		shmupBtnMask4: 0,
 		pinShmupDial: -1,
-		sliderSOCDModeOne: 0,
-		sliderSOCDModeTwo: 2,
 		sliderSOCDModeDefault: 1,
 		wiiExtensionSDAPin: -1,
 		wiiExtensionSCLPin: -1,
@@ -228,14 +459,24 @@ app.get("/api/getAddonsOptions", (req, res) => {
 		snesPadClockPin: -1,
 		snesPadLatchPin: -1,
 		snesPadDataPin: -1,
+		keyboardHostPinDplus: 0,
+		keyboardHostPin5V: -1,
+		keyboardHostMap: DEFAULT_KEYBOARD_MAPPING,
+		psPassthroughPinDplus: 0,
+		psPassthroughPin5V: -1,
 		AnalogInputEnabled: 1,
 		BoardLedAddonEnabled: 1,
+		FocusModeAddonEnabled: 1,
+		focusModeOledLockEnabled: 0,
+		focusModeRgbLockEnabled: 0,
+		focusModeMacroLockEnabled: 0,
 		BuzzerSpeakerAddonEnabled: 1,
 		BootselButtonAddonEnabled: 1,
 		DualDirectionalInputEnabled: 1,
-		ExtraButtonAddonEnabled: 1,
+		TiltInputEnabled: 1,
 		I2CAnalog1219InputEnabled: 1,
 		JSliderInputEnabled: 1,
+		KeyboardHostAddonEnabled: 1,
 		PlayerNumAddonEnabled: 1,
 		PS4ModeAddonEnabled: 1,
 		ReverseInputEnabled: 1,
@@ -243,17 +484,56 @@ app.get("/api/getAddonsOptions", (req, res) => {
 		TurboInputEnabled: 1,
 		WiiExtensionAddonEnabled: 1,
 		SNESpadAddonEnabled: 1,
+		PSPassthroughAddonEnabled: 1,
+		InputHistoryAddonEnabled: 1,
+		inputHistoryLength: 21,
+		inputHistoryCol: 0,
+		inputHistoryRow: 7,
 		usedPins: Object.values(picoController),
 	});
 });
 
-app.get("/api/getFirmwareVersion", (req, res) => {
+app.get('/api/getMacroAddonOptions', (req, res) => {
 	return res.send({
-		version: process.env.REACT_APP_CURRENT_VERSION,
+		macroList: [
+			{
+				enabled: 1,
+				exclusive: 1,
+				interruptible: 1,
+				showFrames: 1,
+				macroType: 1,
+				useMacroTriggerButton: 0,
+				macroTriggerPin: -1,
+				macroTriggerButton: 0,
+				macroLabel: 'Shoryuken',
+				macroInputs: [
+					{ buttonMask: 1 << 19, duration: 16666, waitDuration: 0 },
+					{ buttonMask: 1 << 17, duration: 16666, waitDuration: 0 },
+					{
+						buttonMask: (1 << 17) | (1 << 19) | (1 << 3),
+						duration: 16666,
+						waitDuration: 0,
+					},
+				],
+			},
+		],
+		macroPin: -1,
+		macroBoardLedEnabled: 1,
+		InputMacroAddonEnabled: 1,
+		usedPins: Object.values(picoController),
 	});
 });
 
-app.get("/api/getButtonLayoutCustomOptions", (req, res) => {
+app.get('/api/getFirmwareVersion', (req, res) => {
+	return res.send({
+		boardConfigLabel: 'Pico',
+		boardConfigFileName: `GP2040_${process.env.VITE_CURRENT_VERSION}_Pico`,
+		boardConfig: 'Pico',
+		version: process.env.VITE_CURRENT_VERSION,
+	});
+});
+
+app.get('/api/getButtonLayoutCustomOptions', (req, res) => {
 	return res.send({
 		params: {
 			layout: 2,
@@ -272,11 +552,11 @@ app.get("/api/getButtonLayoutCustomOptions", (req, res) => {
 	});
 });
 
-app.get("/api/reboot", (req, res) => {
+app.get('/api/reboot', (req, res) => {
 	return res.send({});
 });
 
-app.get("/api/getMemoryReport", (req, res) => {
+app.get('/api/getMemoryReport', (req, res) => {
 	return res.send({
 		totalFlash: 2048,
 		usedFlash: 1048,
@@ -286,7 +566,18 @@ app.get("/api/getMemoryReport", (req, res) => {
 	});
 });
 
-app.post("/api/*", (req, res) => {
+app.get('/api/getHeldPins', async (req, res) => {
+	await new Promise((resolve) => setTimeout(resolve, 2000));
+	return res.send({
+		heldPins: [7],
+	});
+});
+
+app.get('/api/abortGetHeldPins', async (req, res) => {
+	return res.send();
+});
+
+app.post('/api/*', (req, res) => {
 	console.log(req.body);
 	return res.send(req.body);
 });

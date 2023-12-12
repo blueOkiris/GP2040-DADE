@@ -20,7 +20,8 @@
 
 UsbMode usb_mode = USB_MODE_HID;
 InputMode input_mode = INPUT_MODE_XINPUT;
-bool usb_mounted = false;
+static bool usb_mounted = false;
+static bool usb_suspended = false;
 
 InputMode get_input_mode(void)
 {
@@ -32,13 +33,18 @@ bool get_usb_mounted(void)
 	return usb_mounted;
 }
 
+bool get_usb_suspended(void)
+{
+	return usb_suspended;
+}
+
 void initialize_driver(InputMode mode)
 {
 	input_mode = mode;
 	if (mode == INPUT_MODE_CONFIG)
 		usb_mode = USB_MODE_NET;
 
-	tusb_init();
+	tud_init(TUD_OPT_RHPORT);
 }
 
 void receive_report(uint8_t *buffer)
@@ -50,20 +56,24 @@ void receive_report(uint8_t *buffer)
 	}
 }
 
-void send_report(void *report, uint16_t report_size)
+bool send_report(void *report, uint16_t report_size)
 {
 	static uint8_t previous_report[CFG_TUD_ENDPOINT0_SIZE] = { };
+
+	bool sent = false;
 
 	if (tud_suspended())
 		tud_remote_wakeup();
 
 	if (memcmp(previous_report, report, report_size) != 0)
 	{
-		bool sent = false;
 		switch (input_mode)
 		{
 			case INPUT_MODE_XINPUT:
 				sent = send_xinput_report(report, report_size);
+				break;
+			case INPUT_MODE_KEYBOARD:
+				sent = send_keyboard_report(report);
 				break;
 
 			default:
@@ -74,6 +84,8 @@ void send_report(void *report, uint16_t report_size)
 		if (sent)
 			memcpy(previous_report, report, report_size);
 	}
+	
+	return sent;
 }
 
 /* USB Driver Callback (Required for XInput) */
@@ -124,8 +136,9 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
 			memcpy(buffer, &switch_report, report_size);
 			break;
 		case INPUT_MODE_KEYBOARD:
-			report_size = sizeof(KeyboardReport);
-			memcpy(buffer, &keyboard_report, report_size);
+			report_size = report_id == KEYBOARD_KEY_REPORT_ID ? sizeof(KeyboardReport::keycode) : sizeof(KeyboardReport::multimedia);
+			memcpy(buffer, report_id == KEYBOARD_KEY_REPORT_ID ?
+				(void*) keyboard_report.keycode : (void*) &keyboard_report.multimedia, report_size);
 			break;
 		case INPUT_MODE_PS4:
 			if ( report_type == HID_REPORT_TYPE_FEATURE ) {
@@ -184,9 +197,11 @@ void tud_umount_cb(void)
 void tud_suspend_cb(bool remote_wakeup_en)
 {
 	(void)remote_wakeup_en;
+	usb_suspended = true;
 }
 
 // Invoked when usb bus is resumed
 void tud_resume_cb(void)
 {
+	usb_suspended = false;
 }

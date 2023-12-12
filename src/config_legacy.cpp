@@ -5,6 +5,7 @@
 #include "helper.h"
 
 #include "config.pb.h"
+#include "GamepadState.h"
 
 #include "mbedtls/rsa.h"
 
@@ -18,6 +19,12 @@ const size_t SPLASH_IMAGE_STORAGE_INDEX = 6144; // 1032 bytes for Display Config
 
 const uint32_t CHECKSUM_MAGIC   = 0;
 const uint32_t NOCHECKSUM_MAGIC = 0xDEADBEEF;   // No checksum CRC;
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Do not change the structs or enums in the ConfigLegacy namespace!
+// They represent the structure of our legacy configuration storage, and any
+// change will break the migration process.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 namespace ConfigLegacy
 {
@@ -102,6 +109,7 @@ namespace ConfigLegacy
         BUTTON_LAYOUT_FIGHTBOARD_STICK,
         BUTTON_LAYOUT_FIGHTBOARD_MIRRORED,
         BUTTON_LAYOUT_CUSTOMA,
+        BUTTON_LAYOUT_OPENCORE0WASDA,
     };
 
     enum ButtonLayoutRight
@@ -123,6 +131,8 @@ namespace ConfigLegacy
         BUTTON_LAYOUT_FIGHTBOARD,
         BUTTON_LAYOUT_FIGHTBOARD_STICK_MIRRORED,
         BUTTON_LAYOUT_CUSTOMB,
+        BUTTON_LAYOUT_KEYBOARD8B,
+        BUTTON_LAYOUT_OPENCORE0WASDB,
     };
 
     enum SplashMode
@@ -540,6 +550,7 @@ static bool isValidButtonLayout(ConfigLegacy::ButtonLayout buttonLayout)
         case BUTTON_LAYOUT_FIGHTBOARD_STICK:
         case BUTTON_LAYOUT_FIGHTBOARD_MIRRORED:
         case BUTTON_LAYOUT_CUSTOMA:
+        case BUTTON_LAYOUT_OPENCORE0WASDA:
             return true;
     }
     return false;
@@ -566,6 +577,8 @@ static bool isValidButtonLayoutRight(ConfigLegacy::ButtonLayoutRight buttonLayou
         case BUTTON_LAYOUT_FIGHTBOARD:
         case BUTTON_LAYOUT_FIGHTBOARD_STICK_MIRRORED:
         case BUTTON_LAYOUT_CUSTOMB:
+        case BUTTON_LAYOUT_KEYBOARD8B:
+        case BUTTON_LAYOUT_OPENCORE0WASDB:
             return true;
     }
     return false;
@@ -687,52 +700,60 @@ bool ConfigUtils::fromLegacyStorage(Config& config)
 
         HotkeyOptions& hotkeyOptions = config.hotkeyOptions;
         config.has_hotkeyOptions = true;
-        SET_PROPERTY(hotkeyOptions.hotkeyF1Up, dpadMask, legacyGamepadOptions.hotkeyF1Up.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey01, dpadMask, legacyGamepadOptions.hotkeyF1Up.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey01, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF1Up.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF1Up, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Up.action));
+            SET_PROPERTY(hotkeyOptions.hotkey01, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Up.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF1Down, dpadMask, legacyGamepadOptions.hotkeyF1Down.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey02, dpadMask, legacyGamepadOptions.hotkeyF1Down.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey02, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF1Down.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF1Down, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Down.action));
+            SET_PROPERTY(hotkeyOptions.hotkey02, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Down.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF1Left, dpadMask, legacyGamepadOptions.hotkeyF1Left.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey03, dpadMask, legacyGamepadOptions.hotkeyF1Left.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey03, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF1Left.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF1Left, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Left.action));
+            SET_PROPERTY(hotkeyOptions.hotkey03, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Left.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF1Right, dpadMask, legacyGamepadOptions.hotkeyF1Right.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey04, dpadMask, legacyGamepadOptions.hotkeyF1Right.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey04, buttonsMask, GAMEPAD_MASK_S1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF1Right.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF1Right, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Right.action));
+            SET_PROPERTY(hotkeyOptions.hotkey04, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF1Right.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF2Up, dpadMask, legacyGamepadOptions.hotkeyF2Up.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey05, dpadMask, legacyGamepadOptions.hotkeyF2Up.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey05, buttonsMask, GAMEPAD_MASK_A1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF2Up.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF2Up, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Up.action));
+            SET_PROPERTY(hotkeyOptions.hotkey05, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Up.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF2Down, dpadMask, legacyGamepadOptions.hotkeyF2Down.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey06, dpadMask, legacyGamepadOptions.hotkeyF2Down.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey06, buttonsMask, GAMEPAD_MASK_A1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF2Down.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF2Down, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Down.action));
+            SET_PROPERTY(hotkeyOptions.hotkey06, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Down.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF2Left, dpadMask, legacyGamepadOptions.hotkeyF2Left.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey07, dpadMask, legacyGamepadOptions.hotkeyF2Left.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey07, buttonsMask, GAMEPAD_MASK_A1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF2Left.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF2Left, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Left.action));
+            SET_PROPERTY(hotkeyOptions.hotkey07, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Left.action));
         }
 
-        SET_PROPERTY(hotkeyOptions.hotkeyF2Right, dpadMask, legacyGamepadOptions.hotkeyF2Right.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey08, dpadMask, legacyGamepadOptions.hotkeyF2Right.dpadMask);
+        SET_PROPERTY(hotkeyOptions.hotkey08, buttonsMask, GAMEPAD_MASK_A1 | GAMEPAD_MASK_S2);
         if (isValidGamepadHotkey(legacyGamepadOptions.hotkeyF2Right.action))
         {
-            SET_PROPERTY(hotkeyOptions.hotkeyF2Right, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Right.action));
+            SET_PROPERTY(hotkeyOptions.hotkey08, action, static_cast<GamepadHotkey>(legacyGamepadOptions.hotkeyF2Right.action));
         }
     }
 
@@ -741,8 +762,8 @@ bool ConfigUtils::fromLegacyStorage(Config& config)
     {
         legacyConfigFound = true;
 
-        PinMappings& pinMappings = config.pinMappings;
-        config.has_pinMappings = true;
+        PinMappings& pinMappings = config.deprecatedPinMappings;
+        config.has_deprecatedPinMappings = true;
         SET_PROPERTY(pinMappings, pinDpadUp, bytePinToIntPin(legacyBoardOptions.pinDpadUp));
         SET_PROPERTY(pinMappings, pinDpadDown, bytePinToIntPin(legacyBoardOptions.pinDpadDown));
         SET_PROPERTY(pinMappings, pinDpadLeft, bytePinToIntPin(legacyBoardOptions.pinDpadLeft));
@@ -927,8 +948,8 @@ bool ConfigUtils::fromLegacyStorage(Config& config)
         AnalogOptions& analogOptions = config.addonOptions.analogOptions;
         config.addonOptions.has_analogOptions = true;
         SET_PROPERTY(analogOptions, enabled, legacyAddonOptions.AnalogInputEnabled);
-        SET_PROPERTY(analogOptions, analogAdcPinX, bytePinToIntPin(legacyAddonOptions.analogAdcPinX));
-        SET_PROPERTY(analogOptions, analogAdcPinY, bytePinToIntPin(legacyAddonOptions.analogAdcPinY));
+        SET_PROPERTY(analogOptions, analogAdc1PinX, bytePinToIntPin(legacyAddonOptions.analogAdcPinX));
+        SET_PROPERTY(analogOptions, analogAdc1PinY, bytePinToIntPin(legacyAddonOptions.analogAdcPinY));
 
         BootselButtonOptions& bootselButtonOptions = config.addonOptions.bootselButtonOptions;
         config.addonOptions.has_bootselButtonOptions = true;
@@ -944,18 +965,18 @@ bool ConfigUtils::fromLegacyStorage(Config& config)
         DualDirectionalOptions& dualDirectionalOptions = config.addonOptions.dualDirectionalOptions;
         config.addonOptions.has_dualDirectionalOptions = true;
         SET_PROPERTY(dualDirectionalOptions, enabled, legacyAddonOptions.DualDirectionalInputEnabled);
-        SET_PROPERTY(dualDirectionalOptions, upPin, bytePinToIntPin(legacyAddonOptions.pinDualDirUp));
-        SET_PROPERTY(dualDirectionalOptions, downPin, bytePinToIntPin(legacyAddonOptions.pinDualDirDown));
-        SET_PROPERTY(dualDirectionalOptions, leftPin, bytePinToIntPin(legacyAddonOptions.pinDualDirLeft));
-        SET_PROPERTY(dualDirectionalOptions, rightPin, bytePinToIntPin(legacyAddonOptions.pinDualDirRight));
+        SET_PROPERTY(dualDirectionalOptions, deprecatedUpPin, bytePinToIntPin(legacyAddonOptions.pinDualDirUp));
+        SET_PROPERTY(dualDirectionalOptions, deprecatedDownPin, bytePinToIntPin(legacyAddonOptions.pinDualDirDown));
+        SET_PROPERTY(dualDirectionalOptions, deprecatedLeftPin, bytePinToIntPin(legacyAddonOptions.pinDualDirLeft));
+        SET_PROPERTY(dualDirectionalOptions, deprecatedRightPin, bytePinToIntPin(legacyAddonOptions.pinDualDirRight));
         if (isValidDpadMode(legacyAddonOptions.dualDirDpadMode))
         {
             SET_PROPERTY(dualDirectionalOptions, dpadMode, static_cast<DpadMode>(legacyAddonOptions.dualDirDpadMode));
         }
         SET_PROPERTY(dualDirectionalOptions, combineMode, legacyAddonOptions.dualDirCombineMode);
 
-        ExtraButtonOptions& extraButtonOptions = config.addonOptions.extraButtonOptions;
-        config.addonOptions.has_extraButtonOptions = true;
+        ExtraButtonOptions& extraButtonOptions = config.addonOptions.deprecatedExtraButtonOptions;
+        config.addonOptions.has_deprecatedExtraButtonOptions = true;
         SET_PROPERTY(extraButtonOptions, enabled, legacyAddonOptions.ExtraButtonAddonEnabled);
         SET_PROPERTY(extraButtonOptions, pin, bytePinToIntPin(legacyAddonOptions.extraButtonPin));
         SET_PROPERTY(extraButtonOptions, buttonMap, legacyAddonOptions.extraButtonMap);
@@ -972,8 +993,8 @@ bool ConfigUtils::fromLegacyStorage(Config& config)
         SliderOptions& sliderOptions = config.addonOptions.sliderOptions;
         config.addonOptions.has_sliderOptions = true;
         SET_PROPERTY(sliderOptions, enabled, legacyAddonOptions.JSliderInputEnabled);
-        SET_PROPERTY(sliderOptions, pinLS, bytePinToIntPin(legacyAddonOptions.pinSliderLS));
-        SET_PROPERTY(sliderOptions, pinRS, bytePinToIntPin(legacyAddonOptions.pinSliderRS));
+        SET_PROPERTY(sliderOptions, deprecatedPinSliderOne, bytePinToIntPin(legacyAddonOptions.pinSliderLS));
+        SET_PROPERTY(sliderOptions, deprecatedPinSliderTwo, bytePinToIntPin(legacyAddonOptions.pinSliderRS));
 
         PlayerNumberOptions& playerNumberOptions = config.addonOptions.playerNumberOptions;
         config.addonOptions.has_playerNumberOptions = true;
@@ -993,19 +1014,19 @@ bool ConfigUtils::fromLegacyStorage(Config& config)
         SOCDSliderOptions& socdSliderOptions = config.addonOptions.socdSliderOptions;
         config.addonOptions.has_socdSliderOptions = true;
         SET_PROPERTY(socdSliderOptions, enabled, legacyAddonOptions.SliderSOCDInputEnabled);
-        SET_PROPERTY(socdSliderOptions, pinOne, bytePinToIntPin(legacyAddonOptions.pinSliderSOCDOne));
-        SET_PROPERTY(socdSliderOptions, pinTwo, bytePinToIntPin(legacyAddonOptions.pinSliderSOCDTwo));
+        SET_PROPERTY(socdSliderOptions, deprecatedPinOne, bytePinToIntPin(legacyAddonOptions.pinSliderSOCDOne));
+        SET_PROPERTY(socdSliderOptions, deprecatedPinTwo, bytePinToIntPin(legacyAddonOptions.pinSliderSOCDTwo));
         if (isValidSOCDMode(legacyAddonOptions.sliderSOCDModeDefault))
         {
             SET_PROPERTY(socdSliderOptions, modeDefault, static_cast<SOCDMode>(legacyAddonOptions.sliderSOCDModeDefault));
         }
         if (isValidSOCDMode(legacyAddonOptions.sliderSOCDModeOne))
         {
-            SET_PROPERTY(socdSliderOptions, modeOne, static_cast<SOCDMode>(legacyAddonOptions.sliderSOCDModeOne));
+            SET_PROPERTY(socdSliderOptions, deprecatedModeOne, static_cast<SOCDMode>(legacyAddonOptions.sliderSOCDModeOne));
         }
         if (isValidSOCDMode(legacyAddonOptions.sliderSOCDModeTwo))
         {
-            SET_PROPERTY(socdSliderOptions, modeTwo, static_cast<SOCDMode>(legacyAddonOptions.sliderSOCDModeTwo));
+            SET_PROPERTY(socdSliderOptions, deprecatedModeTwo, static_cast<SOCDMode>(legacyAddonOptions.sliderSOCDModeTwo));
         }
 
         OnBoardLedOptions& onBoardLedOptions = config.addonOptions.onBoardLedOptions;

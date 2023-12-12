@@ -13,6 +13,10 @@
 #include "gpaddon.h"
 #include "gamepad.h"
 #include "storagemanager.h"
+#include "peripheralmanager.h"
+#include "peripheral_i2c.h"
+#include "peripheral_spi.h"
+#include "addons/inputhistory.h"
 
 #ifndef HAS_I2C_DISPLAY
 #define HAS_I2C_DISPLAY -1
@@ -60,6 +64,10 @@
 
 #ifndef SPLASH_DURATION
 #define SPLASH_DURATION 7500 // Duration in milliseconds
+#endif
+
+#ifndef DISPLAY_TURN_OFF_WHEN_SUSPENDED
+#define DISPLAY_TURN_OFF_WHEN_SUSPENDED 0
 #endif
 
 #ifndef DEFAULT_SPLASH
@@ -142,6 +150,7 @@ public:
 	virtual void preprocess() {}
 	virtual void process();
 	virtual std::string name() { return I2CDisplayName; }
+	virtual void attachInputHistoryAddon(InputHistoryAddon*);
 private:
 	int initDisplay(int typeOverride);
 	bool isSH1106(int detectedDisplay);
@@ -156,7 +165,10 @@ private:
 	void drawDiamond(int cx, int cy, int size, uint8_t colour, uint8_t filled);
 	void drawUDLR(int startX, int startY, int buttonRadius, int buttonPadding);
 	void drawMAMEA(int startX, int startY, int buttonSize, int buttonPadding);
+	void drawOpenCore0WASDA(int startX, int startY, int buttonSize, int buttonPadding);
+	void drawOpenCore0WASDB(int startX, int startY, int buttonSize, int buttonPadding);
 	void drawMAMEB(int startX, int startY, int buttonSize, int buttonPadding);
+	void drawMAME8B(int startX, int startY, int buttonSize, int buttonPadding);
 	void drawKeyboardAngled(int startX, int startY, int buttonRadius, int buttonPadding);
 	void drawVewlix(int startX, int startY, int buttonRadius, int buttonPadding);
 	void drawVewlix7(int startX, int startY, int buttonRadius, int buttonPadding);
@@ -209,6 +221,11 @@ private:
 	DisplayMode getDisplayMode();
 	DisplayMode prevDisplayMode;
 	uint16_t prevButtonState;
+	bool isFocusModeEnabled;
+	bool focusModePrevState;
+	bool turnOffWhenSuspended;
+	bool isInputHistoryEnabled;
+	InputHistoryAddon* inputHistoryAddon;
 };
 
 #endif

@@ -2,6 +2,7 @@
 #define _SliderSOCD_H
 
 #include "gpaddon.h"
+#include "types.h"
 
 #include "GamepadEnums.h"
 
@@ -36,6 +37,7 @@ class SliderSOCDInput : public GPAddon {
 public:
     virtual bool available();
 	virtual void setup();       // SliderSOCD Button Setup
+    virtual void reinit();
     virtual void preprocess() {}
 	virtual void process();     // SliderSOCD process
     virtual std::string name() { return SliderSOCDName; }
@@ -45,11 +47,12 @@ private:
     SOCDMode socdState;           // Saved locally for debounce
     SOCDMode dDebState;          // Debounce SliderSOCD State
     uint32_t uDebTime;          // Debounce SliderSOCD Time
-    SOCDMode sliderSOCDModeOne;
-    SOCDMode sliderSOCDModeTwo;
-    SOCDMode sliderSOCDModeDefault;
-    uint8_t pinSliderSOCDOne;
-    uint8_t pinSliderSOCDTwo;
+
+    Mask_t upPrioModeMask = 0;
+    Mask_t neutralModeMask = 0;
+    Mask_t secondInputModeMask = 0;
+    Mask_t firstInputModeMask = 0;
+    Mask_t bypassModeMask = 0;
 };
 
 #endif  // _SliderSOCD_H_

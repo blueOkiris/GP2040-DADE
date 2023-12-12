@@ -50,6 +50,7 @@ public:
     virtual bool available();
 	virtual void setup();       // Dual Directional Setup
 	virtual void process();     // Dual Directional Process
+    virtual void reinit();
     virtual void preprocess();  // Dual Directional Pre-Process (Cheat)
     virtual std::string name() { return DualDirectionalName; }
 private:
@@ -67,12 +68,12 @@ private:
     DpadDirection lastDualUD; // Dual Last Up-Down
     DpadDirection lastDualLR; // Gamepad Last Left-Right
     uint32_t dpadTime[4];
-    uint8_t pinDualDirDown;
-    uint8_t pinDualDirUp;
-    uint8_t pinDualDirLeft;
-    uint8_t pinDualDirRight;
     uint8_t combineMode;
     DpadMode dpadMode;
+    GamepadButtonMapping *mapDpadUp;
+    GamepadButtonMapping *mapDpadDown;
+    GamepadButtonMapping *mapDpadLeft;
+    GamepadButtonMapping *mapDpadRight;
 };
 
 #endif  // _DualDirectional_H

@@ -6,9 +6,12 @@
 #ifndef GP2040_H_
 #define GP2040_H_
 
+#include <map>
+
 // GP2040 Classes
 #include "gamepad.h"
 #include "addonmanager.h"
+#include "peripheralmanager.h"
 
 #include "pico/types.h"
 
@@ -19,21 +22,22 @@ public:
     void setup();           // setup core0
     void run();             // loop core0
 private:
-    uint64_t nextRuntime;
     Gamepad snapshot;
     AddonManager addons;
+    PeripheralManager peripherals;
 
-    struct WebConfigHotkey {
-        WebConfigHotkey();
+    struct RebootHotkeys {
+        RebootHotkeys();
         void process(Gamepad* gamepad, bool configMode);
 
         bool active;
 
         absolute_time_t noButtonsPressedTimeout;
         uint16_t webConfigHotkeyMask;
-        absolute_time_t webConfigHotkeyHoldTimeout;
+        uint16_t bootselHotkeyMask;
+        absolute_time_t rebootHotkeysHoldTimeout;
     };
-    WebConfigHotkey webConfigHotkey;
+    RebootHotkeys rebootHotkeys;
 
     enum class BootAction {
         NONE,
@@ -45,7 +49,14 @@ private:
         SET_INPUT_MODE_KEYBOARD,
         SET_INPUT_MODE_PS4
     };
-    static BootAction getBootAction();
+    BootAction getBootAction();
+
+    // GPIO manipulation for setup and profile reinit
+    void initializeStandardGpio();
+    void deinitializeStandardGpio();
+
+    // input mask, action
+    std::map<uint32_t, int32_t> bootActions;
 };
 
 #endif
